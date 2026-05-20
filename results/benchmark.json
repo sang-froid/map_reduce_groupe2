@@ -1,0 +1,22 @@
+[
+  {
+    "dataset": "1 500 capteurs",
+    "n_points": 1500,
+    "classic_time": 0.118,
+    "classic_iters": 5,
+    "classic_timeout": false,
+    "mr_time": 3.735,
+    "mr_iters": 5,
+    "mr_timeout": false
+  },
+  {
+    "dataset": "50 000 capteurs",
+    "n_points": 50000,
+    "classic_time": 4.125,
+    "classic_iters": 7,
+    "classic_timeout": false,
+    "mr_time": 5.395,
+    "mr_iters": 7,
+    "mr_timeout": false
+  }
+]

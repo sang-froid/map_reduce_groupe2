@@ -1,0 +1,1 @@
+# Aucune dépendance externe requise — multiprocessing est inclus dans Python
