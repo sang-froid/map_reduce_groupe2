@@ -1,37 +1,42 @@
 """
 kmeans_mr_job.py
-Implémentation du paradigme MapReduce avec multiprocessing (sans mrjob).
+Implémentation du paradigme MapReduce avec multiprocessing (sans dépendance externe).
 Compatible Python 3.12+.
 
-Modélisation :
-  MAPPER  : reçoit un chunk de lignes CSV, retourne liste de (cluster_id, (point, 1))
-  COMBINER: somme partielle locale par cluster (optimisation pré-shuffle)
-  SHUFFLE : regroupe par cluster_id (simulé en mémoire)
-  REDUCER : calcule le nouveau centroïde depuis les sommes partielles
+Modélisation MapReduce :
+  MAPPER   : reçoit un chunk de lignes CSV (ou les lignes d'un serveur régional)
+             → émet des paires (cluster_id, (somme_partielle, count))
+  COMBINER : somme partielle locale par cluster, avant le shuffle (optimisation)
+  SHUFFLE  : regroupe toutes les paires par cluster_id (simulé en mémoire)
+  REDUCER  : agrège les sommes partielles → nouveau centroïde
 """
 
-import math
 import multiprocessing
-import csv
-import io
+from utils import euclidean, FEATURE_INDICES
 
-FEATURE_INDICES = [4, 5, 6, 7]  # temperature, humidity, vibration, network_traffic
-
-def euclidean(a, b):
-    return math.sqrt(sum((x - y) ** 2 for x, y in zip(a, b)))
 
 # ─────────────────────────────────────────────
-# MAPPER + COMBINER  (exécuté en parallèle)
+# MAPPER + COMBINER  (exécuté en parallèle sur chaque worker)
 # ─────────────────────────────────────────────
 def mapper_combiner(args):
     """
-    Reçoit (chunk_lines, centroids).
-    Pour chaque capteur : trouve le cluster le plus proche (MAP).
-    Puis somme partielle par cluster (COMBINE).
-    Retourne dict { cluster_id: (partial_sum, count) }
+    Entrée  : (chunk_lines, centroids) ou (chunk_lines, centroids, norm_params)
+              chunk_lines = liste de lignes CSV brutes (un serveur ou un bloc)
+
+    Étape MAP     : pour chaque capteur, calcule la distance aux K centroïdes
+                    et émet (cluster_id, point).
+    Étape COMBINE : somme locale par cluster_id pour réduire les échanges réseau.
+
+    Sortie  : dict { cluster_id: (partial_sum, count) }
     """
-    chunk_lines, centroids = args
-    partial = {}  # { cluster_id: ([sum_features], count) }
+    norm_params = None
+    if len(args) == 3:
+        chunk_lines, centroids, norm_params = args
+        means_n, stds_n = norm_params
+    else:
+        chunk_lines, centroids = args
+
+    partial = {}
 
     for line in chunk_lines:
         line = line.strip()
@@ -43,11 +48,15 @@ def mapper_combiner(args):
         except (ValueError, IndexError):
             continue
 
-        # MAP : associer au centroïde le plus proche
+        # Normalisation inline si paramètres fournis
+        if norm_params is not None:
+            point = [(point[d] - means_n[d]) / stds_n[d] for d in range(len(point))]
+
+        # MAP : trouver le centroïde le plus proche
         distances = [euclidean(point, c) for c in centroids]
         cluster_id = distances.index(min(distances))
 
-        # COMBINE local : somme partielle
+        # COMBINE local : accumuler la somme partielle
         if cluster_id not in partial:
             partial[cluster_id] = ([0.0] * len(point), 0)
         s, cnt = partial[cluster_id]
@@ -57,7 +66,7 @@ def mapper_combiner(args):
 
 
 # ─────────────────────────────────────────────
-# SHUFFLE  (regroupement par clé)
+# SHUFFLE  (regroupement par clé — simulé en mémoire)
 # ─────────────────────────────────────────────
 def shuffle(partial_results, k):
     """
@@ -76,8 +85,11 @@ def shuffle(partial_results, k):
 # ─────────────────────────────────────────────
 def reducer(cluster_id, values):
     """
-    Agrège les sommes partielles → nouveau centroïde.
-    Retourne (cluster_id, new_centroid, total_count)
+    Entrée  : (cluster_id, [(partial_sum, count), ...])
+    Agrège les sommes partielles de tous les mappers → nouveau centroïde.
+    Sortie  : (cluster_id, new_centroid, total_count)
+
+    Note : pas d'arrondi ici pour préserver la précision numérique entre itérations.
     """
     total_sum = None
     total_count = 0
@@ -93,21 +105,22 @@ def reducer(cluster_id, values):
     else:
         new_centroid = total_sum or [0.0] * len(FEATURE_INDICES)
 
-    return cluster_id, [round(v, 6) for v in new_centroid], total_count
+    return cluster_id, new_centroid, total_count
 
 
 # ─────────────────────────────────────────────
 # ORCHESTRATEUR : une itération complète
 # ─────────────────────────────────────────────
-def run_mapreduce_iteration(lines, centroids, n_workers=None):
+def run_mapreduce_iteration(lines, centroids, n_workers=None, norm_params=None):
     """
-    Lance une itération MapReduce complète :
-    Map → Combine → Shuffle → Reduce
+    Lance une itération MapReduce complète : Map → Combine → Shuffle → Reduce.
 
     Paramètres :
-        lines      : liste de lignes CSV (strings)
-        centroids  : liste des centroïdes courants
-        n_workers  : nombre de processus parallèles (défaut = nb CPUs)
+        lines       : liste de lignes CSV (mode chunk) OU liste de listes de lignes
+                      (mode multi-serveurs : chaque sous-liste = un serveur régional)
+        centroids   : centroïdes courants
+        n_workers   : nombre de processus parallèles (défaut = nb CPUs)
+        norm_params : (means, stds) pour normalisation z-score inline, ou None
 
     Retourne :
         new_centroids : liste des nouveaux centroïdes
@@ -118,10 +131,17 @@ def run_mapreduce_iteration(lines, centroids, n_workers=None):
 
     k = len(centroids)
 
-    # Découpage des données en chunks (un par worker)
-    chunk_size = max(1, len(lines) // n_workers)
-    chunks = [lines[i:i + chunk_size] for i in range(0, len(lines), chunk_size)]
-    args = [(chunk, centroids) for chunk in chunks]
+    # Mode multi-serveurs : lines est une liste de listes (une par serveur)
+    if lines and isinstance(lines[0], list):
+        chunks = lines
+    else:
+        chunk_size = max(1, len(lines) // n_workers)
+        chunks = [lines[i:i + chunk_size] for i in range(0, len(lines), chunk_size)]
+
+    if norm_params is not None:
+        args = [(chunk, centroids, norm_params) for chunk in chunks]
+    else:
+        args = [(chunk, centroids) for chunk in chunks]
 
     # ── MAP + COMBINE (parallèle) ──────────────
     with multiprocessing.Pool(processes=n_workers) as pool:
@@ -139,7 +159,7 @@ def run_mapreduce_iteration(lines, centroids, n_workers=None):
             new_centroids[cid] = centroid
             cluster_counts[cid] = count
 
-    # Gérer les clusters vides
+    # Cluster vide → conserver l'ancien centroïde pour éviter None
     for i in range(k):
         if new_centroids[i] is None:
             new_centroids[i] = list(centroids[i])

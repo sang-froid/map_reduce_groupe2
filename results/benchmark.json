@@ -1,22 +1,32 @@
 [
   {
-    "dataset": "1 500 capteurs",
+    "dataset": "1 500 capteurs (normal)",
     "n_points": 1500,
-    "classic_time": 0.118,
-    "classic_iters": 5,
+    "classic_time": 0.075,
+    "classic_iters": 10,
     "classic_timeout": false,
-    "mr_time": 3.735,
-    "mr_iters": 5,
+    "mr_time": 0.131,
+    "mr_iters": 10,
     "mr_timeout": false
   },
   {
-    "dataset": "50 000 capteurs",
+    "dataset": "50 000 capteurs (stress)",
     "n_points": 50000,
-    "classic_time": 4.125,
-    "classic_iters": 7,
+    "classic_time": 2.572,
+    "classic_iters": 10,
     "classic_timeout": false,
-    "mr_time": 5.395,
-    "mr_iters": 7,
+    "mr_time": 1.061,
+    "mr_iters": 10,
     "mr_timeout": false
+  },
+  {
+    "dataset": "multi-serveurs (1 500)",
+    "n_points": 1500,
+    "classic_timeout": false,
+    "mr_timeout": false,
+    "classic_time": 0.082,
+    "classic_iters": 10,
+    "mr_time": 0.186,
+    "mr_iters": 10
   }
 ]
