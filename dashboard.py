@@ -29,6 +29,7 @@ YELLOW    = "#f59e0b"
 RED       = "#ef4444"
 CYAN      = "#06b6d4"
 PINK      = "#ec4899"
+ORANGE    = "#f97316"
 TEXT      = "#f1f5f9"
 MUTED     = "#475569"
 BORDER    = "#1e1e3a"
@@ -184,6 +185,7 @@ class Dashboard(tk.Tk):
             ("dist",   ACCENT,  "◉", "Multi-Serveurs (5 srv)", self._run_dist),
             ("stream", YELLOW,  "≋", "Streaming continu",      self._run_stream),
             ("bench",  PINK,    "≡", "Benchmark complet",      self._run_bench),
+            ("simul",  ORANGE,  "⧗", "Simulation Timeout",     self._run_simulation),
         ]:
             frm = tk.Frame(side, bg=SIDEBAR)
             frm.pack(fill=tk.X, padx=12, pady=2)
@@ -445,10 +447,11 @@ class Dashboard(tk.Tk):
         nav.pack(side=tk.RIGHT, padx=8)
         self.res_btns = {}
         for key, lbl, color in [
-            ("classic",   "Classique", CYAN),
-            ("mapreduce", "MapReduce", ACCENT2),
-            ("streaming", "Streaming", YELLOW),
-            ("benchmark", "Benchmark", PINK),
+            ("classic",    "Classique",  CYAN),
+            ("mapreduce",  "MapReduce",  ACCENT2),
+            ("streaming",  "Streaming",  YELLOW),
+            ("benchmark",  "Benchmark",  PINK),
+            ("simulation", "Simulation", ORANGE),
         ]:
             b = tk.Button(nav, text=lbl, font=("Segoe UI", 8),
                           bg=BTN, fg=MUTED, bd=0, padx=10, pady=5,
@@ -715,10 +718,11 @@ class Dashboard(tk.Tk):
     # ── Résultats ─────────────────────────────────────────────────────
     def _show_result_file(self, key):
         paths = {
-            "classic":   "results/classic_result.json",
-            "mapreduce": "results/mapreduce_result.json",
-            "streaming": "results/streaming_result.json",
-            "benchmark": "results/benchmark.json",
+            "classic":    "results/classic_result.json",
+            "mapreduce":  "results/mapreduce_result.json",
+            "streaming":  "results/streaming_result.json",
+            "benchmark":  "results/benchmark.json",
+            "simulation": "results/simulation_result.json",
         }
         path = os.path.join(PROJECT_DIR, paths.get(key, ""))
         if not os.path.exists(path):
@@ -737,6 +741,8 @@ class Dashboard(tk.Tk):
         self._rclear()
         if key == "benchmark" and isinstance(data, list):
             self._render_benchmark(data)
+        elif key == "simulation" and isinstance(data, dict) and "results" in data:
+            self._render_simulation(data)
         else:
             self._render_result(data, key)
         self.nb.select(2)
@@ -849,6 +855,127 @@ class Dashboard(tk.Tk):
         self._rwrite("  En production réelle (données sur réseau), le gain\n"
                      "  est encore plus important car les workers tournent\n"
                      "  localement sur chaque serveur régional.\n\n", "muted")
+
+    def _render_simulation(self, data):
+        timeout_s  = data.get("timeout_s", 12)
+        k          = data.get("k", 3)
+        n_servers  = data.get("n_servers", 5)
+        cpu_count  = data.get("cpu_count", "?")
+        results    = data.get("results", [])
+
+        self._rwrite(f"\n  ╔{'═'*62}╗\n", "muted")
+        self._rwrite("  ║  ", "muted")
+        self._rwrite(f"SIMULATION — CLASSIQUE (TIMEOUT) vs MAPREDUCE DISTRIBUÉ  ", "h1")
+        self._rwrite("║\n", "muted")
+        self._rwrite(f"  ╚{'═'*62}╝\n\n", "muted")
+
+        # ── Paramètres ────────────────────────────────────────────────
+        self._rwrite("  Paramètres de la simulation\n", "h2")
+        self._rwrite("  " + "─"*48 + "\n", "muted")
+        for lbl, val in [
+            ("Machine",          f"{cpu_count} CPUs logiques"),
+            ("Timeout classique", f"{timeout_s}s  — au-delà l'algo est abandonné"),
+            ("Clusters K",        str(k)),
+            ("Serveurs régionaux", str(n_servers)),
+            ("Features",          "temp · humidité · vibration · trafic réseau"),
+        ]:
+            self._rwrite(f"  {lbl:<22}", "muted")
+            self._rwrite(f"{val}\n", "val")
+        self._rwrite("\n", "white")
+
+        # ── Tableau comparatif ────────────────────────────────────────
+        self._rwrite("  Résultats par palier de données\n", "h2")
+        self._rwrite("  " + "─"*66 + "\n", "muted")
+        self._rwrite(
+            f"  {'Capteurs':>12}  {'Classique':>18}  {'MapReduce':>12}  {'Verdict'}\n",
+            "label")
+        self._rwrite("  " + "─"*66 + "\n", "muted")
+
+        for r in results:
+            n        = r.get("n", 0)
+            mr_s     = r.get("mr_s", 0)
+            classic_s= r.get("classic_s", timeout_s)
+            timed_out= r.get("timed_out", False)
+
+            mr_txt = f"{mr_s*1000:.0f} ms" if mr_s < 1 else f"{mr_s:.2f}s"
+
+            if timed_out:
+                cl_txt   = f">{timeout_s}s  TIMEOUT"
+                cl_tag   = "red"
+                speedup  = classic_s / mr_s if mr_s > 0 else 0
+                verdict  = f"MR seul peut terminer ({speedup:.1f}× plus rapide)"
+                vrd_tag  = "green"
+            else:
+                cl_txt   = f"{classic_s*1000:.0f} ms" if classic_s < 1 else f"{classic_s:.2f}s"
+                cl_tag   = "yellow"
+                if classic_s > 0 and mr_s > 0:
+                    ratio = classic_s / mr_s
+                    if ratio > 1.05:
+                        verdict = f"MR {ratio:.1f}× plus rapide"
+                        vrd_tag = "green"
+                    elif mr_s / classic_s > 1.05:
+                        overhead = mr_s / classic_s
+                        verdict  = f"Overhead MR ×{overhead:.1f}  (normal à petite échelle)"
+                        vrd_tag  = "yellow"
+                    else:
+                        verdict, vrd_tag = "Performances équivalentes", "val"
+                else:
+                    verdict, vrd_tag = "—", "muted"
+
+            self._rwrite(f"  {n:>12,}  ", "white")
+            self._rwrite(f"{cl_txt:>18}", cl_tag)
+            self._rwrite(f"  {mr_txt:>12}  ", "val")
+            self._rwrite(f"{verdict}\n", vrd_tag)
+
+        self._rwrite("  " + "─"*66 + "\n\n", "muted")
+
+        # ── Interprétation ────────────────────────────────────────────
+        self._rwrite("  Interprétation\n", "h2")
+        self._rwrite("  " + "─"*62 + "\n\n", "muted")
+
+        timeouts = [r for r in results if r.get("timed_out")]
+        small    = [r for r in results if not r.get("timed_out") and
+                    r.get("mr_s", 0) > r.get("classic_s", 0)]
+        wins     = [r for r in results if not r.get("timed_out") and
+                    r.get("classic_s", 0) > r.get("mr_s", 0) * 1.05]
+
+        if small:
+            n_ex = small[0]["n"]
+            self._rwrite(f"  Petite échelle ({n_ex:,} pts)  ", "white")
+            self._rwrite("overhead de démarrage des processus\n", "yellow")
+            self._rwrite("  → Le classique séquentiel est plus rapide quand les\n", "muted")
+            self._rwrite("    données tiennent facilement en mémoire locale.\n\n", "muted")
+
+        if wins:
+            n_ex = wins[-1]["n"]
+            r_ex = wins[-1]
+            ratio = r_ex["classic_s"] / r_ex["mr_s"] if r_ex["mr_s"] > 0 else 0
+            self._rwrite(f"  Grande échelle ({n_ex:,} pts)  ", "white")
+            self._rwrite(f"MapReduce {ratio:.1f}× plus rapide\n", "green")
+            self._rwrite("  → Traitement parallélisé sur les " + str(n_servers) +
+                         " serveurs régionaux.\n\n", "muted")
+
+        if timeouts:
+            n_ex = timeouts[0]["n"]
+            mr_ex = timeouts[0]["mr_s"]
+            self._rwrite(f"  Très grand dataset ({n_ex:,} pts)  ", "white")
+            self._rwrite(f"Classique KO — MapReduce OK en {mr_ex:.2f}s\n", "red")
+            self._rwrite(f"  → L'algo classique dépasse le timeout de {timeout_s}s et\n", "muted")
+            self._rwrite("    est abandonné. Le MapReduce distribué termine normalement\n", "muted")
+            self._rwrite("    car chaque serveur ne traite qu'une fraction des données.\n\n", "muted")
+
+        self._rwrite("  En production IoT réelle, le gain est encore supérieur :\n", "muted")
+        self._rwrite("  chaque serveur régional traite ses capteurs LOCALEMENT\n", "muted")
+        self._rwrite("  et n'envoie que des sommes partielles au coordinateur.\n\n", "muted")
+        self._rwrite("  " + "─"*62 + "\n", "muted")
+
+        # Mise à jour du mini-graphique avec les temps MapReduce
+        mr_counts = {str(i): int(r["mr_s"] * 1000)
+                     for i, r in enumerate(results) if not r.get("timed_out")}
+        if mr_counts:
+            self._draw_chart(mr_counts, "Simulation MR (ms)", "")
+            self.chart_info.configure(
+                text=f"Simulation  ·  timeout {timeout_s}s  ·  {len(results)} paliers")
 
     # ── Spinner ───────────────────────────────────────────────────────
     def _start_spinner(self):
@@ -969,6 +1096,11 @@ class Dashboard(tk.Tk):
         self._launch([sys.executable, "benchmark.py"],
                      "Benchmark complet — Classique vs MapReduce",
                      "benchmark", "bench")
+
+    def _run_simulation(self):
+        self._launch([sys.executable, "simulation_comparison.py", "--dashboard"],
+                     "Simulation Timeout — Classique vs MapReduce distribué",
+                     "simulation", "simul")
 
 
 if __name__ == "__main__":

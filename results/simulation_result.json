@@ -1,0 +1,40 @@
+{
+  "timeout_s": 12,
+  "k": 3,
+  "n_servers": 5,
+  "cpu_count": 4,
+  "results": [
+    {
+      "n": 1500,
+      "classic_s": 0.057,
+      "mr_s": 0.125,
+      "timed_out": false,
+      "classic_iters": 8,
+      "mr_iters": 8
+    },
+    {
+      "n": 30000,
+      "classic_s": 0.907,
+      "mr_s": 0.847,
+      "timed_out": false,
+      "classic_iters": 7,
+      "mr_iters": 10
+    },
+    {
+      "n": 100000,
+      "classic_s": 4.267,
+      "mr_s": 2.62,
+      "timed_out": false,
+      "classic_iters": 10,
+      "mr_iters": 10
+    },
+    {
+      "n": 300000,
+      "classic_s": 12,
+      "mr_s": 8.348,
+      "timed_out": true,
+      "classic_iters": null,
+      "mr_iters": 10
+    }
+  ]
+}

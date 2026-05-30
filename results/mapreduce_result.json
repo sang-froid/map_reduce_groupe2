@@ -3,7 +3,7 @@
   "n_points": 1500,
   "k": 3,
   "iterations": 10,
-  "duration_sec": 0.1335,
+  "duration_sec": 0.1399,
   "centroids": [
     [
       27.627,
