@@ -273,9 +273,10 @@ l'algorithme séquentiel.
 
 Plutôt que de transmettre $N \times W$ enregistrements bruts (ex.\ 300 × 5 = 1\,500),
 le Combiner agrège localement et n'envoie que $K \times W$ sommes partielles
-(3 × 5 = 15). Facteur de réduction : $N/K = 100\times$ à l'échelle de base.
-À 50\,000 capteurs par serveur (10k/serveur), ce gain monte à $\times 3\,333$,
-d'où l'importance du Combiner pour l'efficacité réseau à grande échelle.
+(3 × 5 = 15). Le facteur de réduction du trafic réseau est donc $N/K = 100\times$
+à l'échelle de base. À 50\,000 capteurs par serveur (10k/serveur), ce gain monte
+à $\times 3\,333$, ce qui illustre l'importance du Combiner pour l'efficacité
+réseau à grande échelle.
 
 \subsection{Initialisation K-Means++}
 
@@ -333,7 +334,7 @@ les nouveaux centroïdes.
 \noindent\textbf{Détails d'implémentation :}
 \begin{itemize}
 \item Le mapper parcourt chaque capteur du chunk, calcule sa distance à chaque
-  centroïde via Euclidienne, et l'assigne au cluster le plus proche.
+  centroïde via la distance euclidienne, et l'assigne au cluster le plus proche.
 \item Le combiner agrège les capteurs du même cluster en une seule entrée : somme
   des vecteurs de features et compteur d'éléments.
 \item Le reducer reçoit toutes les sommes partielles d'un cluster et les combine
@@ -375,8 +376,11 @@ def reducer(cluster_id, values):
     return cluster_id, new_centroid, total_count
 \end{lstlisting}
 
-Orchestrateur : soumet chunks via \texttt{Pool.map}, collecte partiels, Shuffle par cluster,
-appelle Reducer. Convergence : $\|c_k^{\text{old}} - c_k^{\text{new}}\|_2 < 10^{-4}$.
+L'orchestrateur soumet les chunks via \texttt{Pool.map}, collecte les résultats partiels,
+les regroupe par identifiant de cluster (Shuffle), puis appelle le Reducer pour calculer
+les nouveaux centroïdes. La convergence est vérifiée à chaque itération par la condition
+$\|c_k^{\text{old}} - c_k^{\text{new}}\|_2 < 10^{-4}$, ce qui garantit la stabilité
+des résultats tout en limitant le nombre d'itérations nécessaires.
 
 \subsection{Métriques de qualité et critères d'arrêt}
 
@@ -391,7 +395,7 @@ clustering de meilleure qualité. Dans nos expériences, l'algorithme classique 
 MapReduce produisent la \textbf{même SSE}, confirmant l'exactitude mathématique.
 
 \noindent\textbf{Critère d'arrêt :} L'algorithme converge quand la variation
-maximale des centroïdes entre deux itérations devient negligeable :
+maximale des centroïdes entre deux itérations devient négligeable :
 \[
   \max_k \|c_k^{(t+1)} - c_k^{(t)}\|_2 < \epsilon
 \]
@@ -400,24 +404,31 @@ suffisante des résultats tout en limitant les itérations.
 
 \subsection{Exemple concret : 6 capteurs sur 2 serveurs}
 
-Pour valider le pipeline : 6 capteurs, $K=2$, centroïdes initiaux (K-Means++)
-$C_0=[35,80,0.5,120]$ (rurale) et $C_1=[22,45,2.5,500]$ (urbaine).
-\textbf{MAP+COMBINE} : serveur A émet $\{$S1,S2$\}\to C_0$ et $\{$S3$\}\to C_1$ ;
-serveur B émet $\{$S4$\}\to C_0$ et $\{$S5,S6$\}\to C_1$ (2 sommes partielles/serveur).
-\textbf{Shuffle+Reduce} : agrégation globale → convergence en 2 itérations.
-Résultat : $\{$S1,S2,S4$\}$ (chaud, humide, rural) et $\{$S3,S5,S6$\}$ (froid, sec, urbain).
-\textbf{Résultat identique à l'algorithme classique.}
+Pour valider le pipeline, on considère un exemple minimal : 6 capteurs répartis
+sur 2 serveurs, $K=2$ clusters, et des centroïdes initiaux choisis par K-Means++ —
+$C_0=[35,80,0.5,120]$ (profil rural) et $C_1=[22,45,2.5,500]$ (profil urbain).
+
+Durant la phase \textbf{MAP+COMBINE}, le serveur A regroupe les capteurs S1 et S2
+vers $C_0$ et S3 vers $C_1$ ; le serveur B affecte S4 à $C_0$, et S5 et S6 à $C_1$.
+Chaque serveur n'émet ainsi que 2 sommes partielles au lieu de 3 enregistrements bruts.
+Après la phase \textbf{Shuffle+Reduce}, l'agrégation globale conduit à la convergence
+en seulement 2 itérations. Le résultat final regroupe $\{$S1,S2,S4$\}$ dans un cluster
+chaud et humide (rural) et $\{$S3,S5,S6$\}$ dans un cluster froid et sec (urbain),
+ce qui est \textbf{identique au résultat produit par l'algorithme classique}.
 
 % ══════════════════════════════════════════════════════════════════════
 %  5. RÉSULTATS ET PERFORMANCES
 % ══════════════════════════════════════════════════════════════════════
 \section{Résultats et performances}
 
-Évaluation comparative (temps d'exécution, scalabilité, qualité des clusters).
+Cette section présente une évaluation comparative entre l'approche classique et MapReduce
+selon trois axes : le temps d'exécution brut, la scalabilité face à la montée en charge,
+et la qualité des clusters produits.
 
 \subsection{Benchmark sur données réelles}
 
-Évaluation comparative sur machine 4-CPU avec $K=3$ clusters et 10 itérations max.
+Les mesures ont été réalisées sur une machine à 4 CPU logiques, avec $K=3$ clusters et
+un maximum de 10 itérations par exécution.
 
 \begin{center}
 \small
@@ -491,8 +502,9 @@ point décisif où MapReduce devient non seulement plus rapide mais \textbf{indi
 
 \subsection{Qualité des clusters produits}
 
-Vérification que la parallélisation ne dégrade pas la qualité du résultat sur
-le dataset de 1\,500 capteurs ($K=3$).
+Nous vérifions ici que la parallélisation ne dégrade pas la qualité du clustering
+en comparant les résultats obtenus sur le dataset de référence de 1\,500 capteurs
+avec $K=3$ clusters.
 
 \begin{center}
 \small
@@ -512,8 +524,9 @@ $C_2$ & [22.2°C, 45.2\%, 2.49\,m/s², 512\,kbps] & 451 &
 
 \noindent La somme des erreurs quadratiques (SSE) est identique :
 $\text{SSE}_{\text{classique}} = \text{SSE}_{\text{MapReduce}} = 3\,550\,130.6$.
-Les clusters correspondent à des profils IoT cohérents. \textbf{Conclusion : pas de perte
-de qualité.}
+Les clusters correspondent à des profils IoT cohérents et sémantiquement
+interprétables. Ces résultats confirment que la parallélisation par MapReduce
+ne dégrade en rien la qualité du clustering.
 
 % ══════════════════════════════════════════════════════════════════════
 %  5bis. LIMITES ET PERSPECTIVES
@@ -533,7 +546,7 @@ pourraient être intégrés.
 \noindent\textbf{Perspectives :} (1) Porter l'implémentation sur Apache Spark pour
 bénéficier de distribution complète et tolérance aux pannes. (2) Implémenter K-Means++
 distribué (actuellement centralisé). (3) Ajouter d'autres métriques de qualité
-(Davies-Bouldin, Calinski-Harabasz) et d'autres initializations (k-means||).
+(Davies-Bouldin, Calinski-Harabasz) et d'autres initialisations (k-means||).
 (4) Évaluer la convergence avec des critères d'arrêt adaptatifs.
 
 % ══════════════════════════════════════════════════════════════════════
