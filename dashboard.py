@@ -162,10 +162,10 @@ def _color_tag(line):
     l = line.lower()
     if any(k in l for k in ("convergence", "terminé", "✓", "succès")): return "green"
     if any(k in l for k in ("timeout", "erreur", "error", "✗")):        return "red"
-    if any(k in l for k in ("itération", "iteration", "vague", "wave")): return "cyan"
+    if any(k in l for k in ("itération", "iteration")):                  return "cyan"
     if any(k in l for k in ("===", "───", "---", "╔", "╚", "║", "═")):  return "muted"
     if any(k in l for k in ("mapreduce", "k-means", "classique",
-                             "benchmark", "streaming", "distribué")):    return "yellow"
+                             "benchmark", "distribué")):                 return "yellow"
     if any(k in l for k in ("cluster", "centroïde", "centroid")):        return "bold"
     return "white"
 
@@ -234,9 +234,6 @@ class Dashboard(tk.Tk):
         pf.pack(fill=tk.X, padx=12, pady=4)
         self.var_k       = self._prow(pf, "K (clusters)",     "3")
         self.var_iter    = self._prow(pf, "Max itérations",   "10")
-        self.var_waves   = self._prow(pf, "Vagues streaming", "6")
-        self.var_delay   = self._prow(pf, "Délai vague (s)",  "1.0")
-        self.var_sensors = self._prow(pf, "Capteurs / vague", "100")
 
         self._slbl(side, "  EXÉCUTER", top=14)
         self.btns = {}
@@ -254,8 +251,6 @@ class Dashboard(tk.Tk):
                  "1 machine · fichier 50 000 pts",  self._run_mr),
                 ("dist",   ACCENT,  "◉", "MapReduce — Distribué",
                  "5 serveurs · données déjà locales", self._run_dist),
-                ("stream", YELLOW,  "≋", "Streaming — Temps réel",
-                 "Vagues incrémentales · warm-start", self._run_stream),
             ]),
             ("ANALYSE", [
                 ("bench",  PINK,    "≡", "Benchmark complet",
@@ -545,7 +540,6 @@ class Dashboard(tk.Tk):
             ("classic",     "Classique",   CYAN),
             ("mapreduce",   "MR Chunk",    ACCENT2),
             ("distributed", "MR Distribué",ACCENT),
-            ("streaming",   "Streaming",   YELLOW),
             ("benchmark",   "Benchmark",   PINK),
             ("simulation",  "Simulation",  ORANGE),
         ]:
@@ -827,7 +821,6 @@ class Dashboard(tk.Tk):
             "classic":     "results/classic_result.json",
             "mapreduce":   "results/mapreduce_result.json",
             "distributed": "results/distributed_result.json",
-            "streaming":   "results/streaming_result.json",
             "benchmark":   "results/benchmark.json",
             "simulation":  "results/simulation_result.json",
         }
@@ -846,12 +839,10 @@ class Dashboard(tk.Tk):
             self._rwrite(f"\n  Erreur de lecture : {e}\n", "red")
             return
         self._rclear()
-        if key == "benchmark" and isinstance(data, list):
+        if key == "benchmark" and isinstance(data, dict) and "phase1_files" in data:
             self._render_benchmark(data)
         elif key == "simulation" and isinstance(data, dict) and "results" in data:
             self._render_simulation(data)
-        elif key == "streaming" and isinstance(data, dict) and "history" in data:
-            self._render_streaming(data)
         else:
             self._render_result(data, key)
         self.nb.select(2)
@@ -961,173 +952,150 @@ class Dashboard(tk.Tk):
                 self._rwrite(f"           • {part.strip()}\n", "muted")
         self._rwrite("\n  " + "─"*62 + "\n\n", "muted")
 
-        if len(centroids) == 3:
+        if len(centroids) >= 1:
+            k_actual = len(centroids)
             self._rwrite("  Conclusion\n", "h2")
             temps = [c[0] for c in centroids]
             nets  = [c[3] for c in centroids]
             hot_i = temps.index(max(temps))
             urb_i = nets.index(max(nets))
-            sub_i = next((j for j in range(3) if j != hot_i and j != urb_i), 0)
-            self._rwrite(f"  Les {total} capteurs se répartissent en 3 profils distincts.\n", "white")
-            self._rwrite(f"  Cluster {hot_i} → zones chaudes/humides   ", "white")
-            self._rwrite(f"({cc.get(str(hot_i),0)} capteurs)\n", "green")
-            self._rwrite(f"  Cluster {urb_i} → fort trafic numérique   ", "white")
-            self._rwrite(f"({cc.get(str(urb_i),0)} capteurs)\n", "val")
-            self._rwrite(f"  Cluster {sub_i} → environnements modérés  ", "white")
-            self._rwrite(f"({cc.get(str(sub_i),0)} capteurs)\n\n", "yellow")
+            self._rwrite(f"  Les {total} capteurs se répartissent en {k_actual} profils distincts.\n", "white")
+            tags_list = ["green", "val", "yellow", "pink", "h1"]
+            for i in range(k_actual):
+                cnt = cc.get(str(i), 0)
+                pct = round(cnt / total * 100, 1) if total else 0
+                if i == hot_i:
+                    label = "→ zones chaudes/humides  "
+                elif i == urb_i:
+                    label = "→ fort trafic numérique  "
+                else:
+                    label = "→ profil intermédiaire   "
+                self._rwrite(f"  Cluster {i} {label}", "white")
+                self._rwrite(f"({cnt} capteurs — {pct}%)\n", tags_list[i % len(tags_list)])
+            self._rwrite("\n", "white")
 
         self._draw_chart(cc, algo, str(duration))
         self.chart_info.configure(
             text=f"{algo}  ·  {iters} itér.  ·  {duration}s  ·  {total} pts")
 
-    def _render_streaming(self, data):
-        algo             = data.get("algorithm", "kmeans_streaming_mapreduce")
-        k                = data.get("k", 3)
-        n_waves          = data.get("n_waves", 0)
-        n_servers        = data.get("n_servers", 5)
-        sensors_per_wave = data.get("sensors_per_wave_per_server", 0)
-        history          = data.get("history", [])
-        final_centroids  = data.get("final_centroids", [])
-        final_counts     = data.get("final_cluster_counts", {})
-        cc               = {str(i): v for i, v in final_counts.items()}
-        total            = sum(cc.values())
-        total_duration   = round(sum(h.get("duration_sec", 0) for h in history), 4)
-
-        stream_lines = [
-            "  Paradigme  : données arrivent en flux continu par vagues",
-            "  Avantage   : warm-start — centroïdes réutilisés vague après vague",
-            "  Clé        : pas de retraitement complet, dérive décroissante",
-            "  Cas d'usage: capteurs temps-réel, alertes IoT, monitoring continu",
-        ]
-        self._rwrite(f"\n  ╔{'═'*62}╗\n", "muted")
-        self._rwrite(f"  ║  ", "muted")
-        self._rwrite(f"{'STREAMING — TEMPS RÉEL (warm-start incrémental)':<62}", "h1")
-        self._rwrite(f"║\n", "muted")
-        self._rwrite(f"  ╠{'═'*62}╣\n", "muted")
-        for line in stream_lines:
-            padded = f"{line:<64}"
-            self._rwrite(f"  ║", "muted")
-            self._rwrite(f"{padded}", "muted")
-            self._rwrite(f"║\n", "muted")
-        self._rwrite(f"  ╚{'═'*62}╝\n\n", "muted")
-
-        self._rwrite("  Métriques globales\n", "h2")
-        self._rwrite("  " + "─"*48 + "\n", "muted")
-        for lbl, val in [
-            ("Points traités",       f"{total} capteurs"),
-            ("Vagues",               str(n_waves)),
-            ("Capteurs/vague/srv",   str(sensors_per_wave)),
-            ("Serveurs",             str(n_servers)),
-            ("Durée totale",         f"{total_duration}s"),
-        ]:
-            self._rwrite(f"  {lbl:<22}", "muted")
-            self._rwrite(f"{val}\n", "val")
-        self._rwrite("\n", "white")
-
-        self._rwrite("  Historique des vagues\n", "h2")
-        self._rwrite("  " + "─"*66 + "\n", "muted")
-        hdr = f"  {'Vague':>5}  {'Total':>8}" + \
-              "".join(f"  {'C'+str(i):>8}" for i in range(k)) + \
-              f"  {'Durée':>8}\n"
-        self._rwrite(hdr, "label")
-        self._rwrite("  " + "─"*66 + "\n", "muted")
-        for h in history:
-            wcc = h.get("cluster_counts", {})
-            counts_str = "".join(f"  {wcc.get(str(i), 0):>8}" for i in range(k))
-            self._rwrite(
-                f"  {h['wave']:>5}  {h['total_points']:>8}{counts_str}"
-                f"  {h['duration_sec']:>7.3f}s\n", "white")
-        self._rwrite("  " + "─"*66 + "\n\n", "muted")
-
-        self._rwrite("  Centroïdes finaux\n", "h2")
-        self._rwrite("  " + "─"*62 + "\n", "muted")
-        self._rwrite(f"  {'Cluster':<10}{'Temp°C':>9}{'Hum%':>8}"
-                     f"{'Vibr':>9}{'Réseau':>10}{'Points':>9}\n", "label")
-        self._rwrite("  " + "─"*62 + "\n", "muted")
-        for i, centroid in enumerate(final_centroids):
-            cnt = cc.get(str(i), 0)
-            pct = round(cnt / total * 100, 1) if total else 0
-            t, h, v, n = [round(x, 2) for x in centroid]
-            self._rwrite(f"  Cluster {i:<4}", "label")
-            self._rwrite(f"{t:>8.2f}{h:>8.2f}{v:>9.3f}{n:>10.2f}", "val")
-            self._rwrite(f"  {cnt:>5} ({pct}%)\n", "muted")
-        self._rwrite("  " + "─"*62 + "\n\n", "muted")
-
-        self._rwrite("  Interprétation automatique des clusters\n", "h2")
-        self._rwrite("  " + "─"*62 + "\n", "muted")
-        tags_list = ["h1", "val", "green", "yellow", "pink"]
-        for i, centroid in enumerate(final_centroids):
-            profil, tags = _interpret_cluster(centroid)
-            self._rwrite(f"\n  Cluster {i}", "label")
-            self._rwrite(f"  →  {profil}\n", tags_list[i % 5])
-            for part in tags.split("  ·  "):
-                self._rwrite(f"           • {part.strip()}\n", "muted")
-        self._rwrite("\n  " + "─"*62 + "\n\n", "muted")
-
-        self._rwrite("  Stabilisation — dérive des centroïdes\n", "h2")
-        self._rwrite("  " + "─"*62 + "\n", "muted")
-        for h in history:
-            drifts = h.get("centroid_drifts", [])
-            ds = "   ".join(f"C{i}={d:.4f}" for i, d in enumerate(drifts))
-            self._rwrite(f"  Vague {h['wave']:>2}  {ds}\n", "muted")
-        self._rwrite("\n", "white")
-
-        self._draw_chart(cc, algo, str(total_duration))
-        self.chart_info.configure(
-            text=f"Streaming  ·  {n_waves} vagues  ·  {total} pts")
-
     def _render_benchmark(self, data):
+        cfg  = data.get("config", {})
+        k    = cfg.get("k", "?")
+        tout = cfg.get("timeout_s", "?")
+
         self._rwrite(f"\n  ╔{'═'*62}╗\n", "muted")
         self._rwrite("  ║  ", "muted")
         self._rwrite("BENCHMARK — CLASSIQUE vs MAPREDUCE" + " "*28, "h1")
         self._rwrite("║\n", "muted")
         self._rwrite(f"  ╚{'═'*62}╝\n\n", "muted")
-        self._rwrite(f"  {'Dataset':<30}{'Classique':>14}{'MapReduce':>14}{'Rapport':>10}\n", "label")
-        self._rwrite("  " + "─"*62 + "\n", "muted")
-        for r in data:
-            name = r.get("dataset", "?")[:28]
-            ct   = r.get("classic_time", "—")
-            mt   = r.get("mr_time", "—")
-            to_c = r.get("classic_timeout", False)
-            ct_s = f">{ct}" if to_c else f"{ct}s"
-            mt_s = f"{mt}s" if not r.get("mr_timeout") else "ERR"
-            try:
-                ratio = float(str(ct)) / float(str(mt))
-                ratio_s  = f"{ratio:.2f}x ↑" if ratio > 1 else f"{1/ratio:.2f}x ↓"
-                ratio_tag = "green" if ratio > 1 else "yellow"
-            except Exception:
-                ratio_s, ratio_tag = "—", "muted"
-            self._rwrite(f"  {name:<30}", "white")
-            self._rwrite(f"{ct_s:>14}", "yellow" if to_c else "val")
-            self._rwrite(f"{mt_s:>14}", "val")
-            self._rwrite(f"{ratio_s:>10}\n", ratio_tag)
-        self._rwrite("  " + "─"*62 + "\n\n", "muted")
+        self._rwrite(f"  K={k}  ·  timeout classique={tout}s  ·  "
+                     f"Réseau IoT 1 Mbps / LAN Gigabit\n\n", "muted")
+
+        def _fmt_row(rows, show_transfer=False):
+            hdr = f"  {'Dataset':<26}{'Classique':>13}{'MapReduce':>13}"
+            if show_transfer:
+                hdr += f"{'Gain total':>12}"
+            hdr += "\n"
+            self._rwrite(hdr, "label")
+            self._rwrite("  " + "─"*62 + "\n", "muted")
+            for r in rows:
+                name = r.get("dataset", "?")[:24]
+                c_s  = r.get("classic_s")
+                m_s  = r.get("mr_s")
+                to_c = r.get("classic_timeout", False)
+                to_m = r.get("mr_timeout", False)
+                ct_s = f">TIMEOUT" if to_c else (f"{c_s:.3f}s" if c_s else "—")
+                mt_s = "ERR"      if to_m else (f"{m_s:.3f}s" if m_s else "—")
+                if show_transfer and not to_c and c_s and m_s:
+                    c_tot = r.get("classic_total_s", c_s)
+                    m_tot = r.get("mr_total_s",      m_s)
+                    try:
+                        gain = c_tot / m_tot
+                        gain_s = f"{gain:.1f}×"
+                    except Exception:
+                        gain_s = "—"
+                elif to_c and m_s:
+                    c_tot = r.get("classic_total_s")
+                    m_tot = r.get("mr_total_s", m_s)
+                    gain_s = f">{round(c_tot/m_tot,1)}×" if c_tot and m_tot else "—"
+                else:
+                    gain_s = "—"
+                self._rwrite(f"  {name:<26}", "white")
+                self._rwrite(f"{ct_s:>13}", "yellow" if to_c else "val")
+                self._rwrite(f"{mt_s:>13}", "val")
+                if show_transfer:
+                    self._rwrite(f"{gain_s:>12}\n", "green" if gain_s not in ("—", "") else "muted")
+                else:
+                    self._rwrite("\n", "white")
+
+        # ── Phase 1 — fichiers CSV réels ─────────────────────────────
+        p1 = data.get("phase1_files", [])
+        if p1:
+            self._rwrite("  Phase 1 — Fichiers CSV réels\n", "h2")
+            _fmt_row(p1, show_transfer=False)
+            self._rwrite("  " + "─"*62 + "\n\n", "muted")
+
+        # ── Phase 2 — montée en charge ────────────────────────────────
+        p2 = data.get("phase2_scalability", [])
+        if p2:
+            self._rwrite("  Phase 2 — Montée en charge (calcul + réseau IoT)\n", "h2")
+            _fmt_row(p2, show_transfer=True)
+            self._rwrite("  " + "─"*62 + "\n\n", "muted")
+
+        # ── Phase 3 — projections milliard ────────────────────────────
+        p3 = data.get("phase3_projections", [])
+        if p3:
+            self._rwrite("  Phase 3 — Projections Big Data (extrapolation O(n))\n", "h2")
+            self._rwrite(f"  {'Capteurs':<22}{'Classique total':>18}{'MapReduce total':>16}{'Gain':>8}\n", "label")
+            self._rwrite("  " + "─"*62 + "\n", "muted")
+
+            def _human(s):
+                if s < 60:
+                    return f"{s:.0f}s"
+                if s < 3600:
+                    return f"{s/60:.1f} min"
+                if s < 86400:
+                    return f"{s/3600:.1f} h"
+                return f"{s/86400:.1f} jours"
+
+            for p in p3:
+                lbl = f"{p['n']:,}"
+                c_h = _human(p.get("classic_total_s", 0))
+                m_h = _human(p.get("mr_total_s", 0))
+                g   = p.get("gain_x", "?")
+                self._rwrite(f"  {lbl:<22}", "white")
+                self._rwrite(f"{c_h:>18}", "yellow")
+                self._rwrite(f"{m_h:>16}", "val")
+                self._rwrite(f"{g:>7}×\n", "green")
+            self._rwrite("  " + "─"*62 + "\n\n", "muted")
+
+        # ── Interprétation ────────────────────────────────────────────
         self._rwrite("  Interprétation\n", "h2")
         self._rwrite("  " + "─"*62 + "\n\n", "muted")
-        # Interprétation calculée depuis les données réelles
-        for r in data:
+        for r in (p1 + p2):
             n_pts = r.get("n_points", 0)
-            ct    = r.get("classic_time")
-            mt    = r.get("mr_time")
+            c_s   = r.get("classic_s")
+            m_s   = r.get("mr_s")
             to_c  = r.get("classic_timeout", False)
             to_m  = r.get("mr_timeout", False)
-            if to_c or to_m or ct is None or mt is None:
+            if to_m or m_s is None:
                 continue
-            try:
-                ratio = float(str(ct)) / float(str(mt))
-            except Exception:
-                continue
-            if ratio > 1.05:
-                verdict = f"MapReduce {ratio:.2f}× plus rapide"
-                v_tag   = "green"
-            elif ratio < 0.95:
-                verdict = f"Overhead MapReduce ×{1/ratio:.2f} (démarrage processus)"
-                v_tag   = "yellow"
-            else:
-                verdict = "Performances équivalentes"
-                v_tag   = "val"
-            self._rwrite(f"  {n_pts:,} capteurs  ", "white")
-            self._rwrite(f"{verdict}\n", v_tag)
+            if to_c:
+                self._rwrite(f"  {n_pts:,} capteurs  ", "white")
+                self._rwrite("Classique KO (timeout) / MapReduce seul capable\n", "green")
+            elif c_s:
+                try:
+                    ratio = float(c_s) / float(m_s)
+                except Exception:
+                    continue
+                if ratio > 1.05:
+                    verdict, v_tag = f"MapReduce {ratio:.2f}× plus rapide", "green"
+                elif ratio < 0.95:
+                    verdict, v_tag = f"Overhead MapReduce ×{1/ratio:.2f} (démarrage processus)", "yellow"
+                else:
+                    verdict, v_tag = "Performances équivalentes", "val"
+                self._rwrite(f"  {n_pts:,} capteurs  ", "white")
+                self._rwrite(f"{verdict}\n", v_tag)
         self._rwrite("\n", "white")
         self._rwrite("  En production réelle (données sur réseau), le gain\n"
                      "  est encore plus important car les workers tournent\n"
@@ -1475,9 +1443,9 @@ class Dashboard(tk.Tk):
                      result_key="data", active_key="gen")
 
     def _run_classic(self):
-        k = self.var_k.get()
+        k, it = self.var_k.get(), self.var_iter.get()
         self._launch([sys.executable, "kmeans_classic.py",
-                      "--input", "data/all_sensors.csv", "--k", k],
+                      "--input", "data/all_sensors.csv", "--k", k, "--max-iter", it],
                      f"K-Means Classique  (K={k}  ·  1 500 capteurs)",
                      "classic", "class")
 
@@ -1500,22 +1468,17 @@ class Dashboard(tk.Tk):
                      f"MapReduce Distribué  (K={k}  ·  5 serveurs régionaux)",
                      "distributed", "dist")
 
-    def _run_stream(self):
-        k, w = self.var_k.get(), self.var_waves.get()
-        d, s = self.var_delay.get(), self.var_sensors.get()
-        self._launch([sys.executable, "kmeans_streaming.py",
-                      "--k", k, "--waves", w, "--sensors-per-wave", s, "--delay", d],
-                     f"Streaming  (K={k}  ·  {w} vagues  ·  délai {d}s)",
-                     "streaming", "stream")
-
     def _run_bench(self):
-        self._launch([sys.executable, "benchmark.py"],
-                     "Benchmark complet — Classique vs MapReduce",
+        k, it = self.var_k.get(), self.var_iter.get()
+        self._launch([sys.executable, "benchmark.py", "--k", k, "--max-iter", it],
+                     f"Benchmark complet — Classique vs MapReduce  (K={k})",
                      "benchmark", "bench")
 
     def _run_simulation(self):
-        self._launch([sys.executable, "simulation_comparison.py", "--dashboard"],
-                     "Simulation Timeout — Classique vs MapReduce distribué",
+        k, it = self.var_k.get(), self.var_iter.get()
+        self._launch([sys.executable, "simulation_comparison.py", "--dashboard",
+                      "--k", k, "--max-iter", it],
+                     f"Simulation Timeout — Classique vs MapReduce distribué  (K={k})",
                      "simulation", "simul")
 
 

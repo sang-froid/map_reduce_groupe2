@@ -6,7 +6,7 @@
 
 ## Contexte
 
-On dispose de 5 serveurs régionaux (Nord, Centre, Sud, Ouest, Est), chacun collectant en continu les mesures de 300 capteurs IoT (température, humidité, vibration, trafic réseau). L'objectif est de regrouper ces capteurs en zones homogènes via K-Means, en comparant trois approches : séquentielle classique, MapReduce parallèle, et streaming continu.
+On dispose de 5 serveurs régionaux (Nord, Centre, Sud, Ouest, Est), chacun collectant en continu les mesures de 300 capteurs IoT (température, humidité, vibration, trafic réseau). L'objectif est de regrouper ces capteurs en zones homogènes via K-Means, en comparant deux approches : séquentielle classique et MapReduce parallèle distribué.
 
 ---
 
@@ -20,7 +20,6 @@ map_reduce_groupe2/
 ├── kmeans_classic.py        # K-Means séquentiel avec K-Means++ et timeout
 ├── kmeans_mr_job.py         # Le cœur : Mapper, Combiner, Shuffle, Reducer
 ├── kmeans_mapreduce.py      # Orchestrateur — mode chunk ou multi-serveurs
-├── kmeans_streaming.py      # Mode warm-start : vagues successives de capteurs
 ├── benchmark.py             # Compare classique vs MapReduce sur 3 datasets
 ├── simulation_comparison.py # Montée en charge jusqu'à 1M de capteurs
 ├── utils.py                 # Fonctions communes : distance, SSE, K-Means++, z-score
@@ -37,7 +36,6 @@ map_reduce_groupe2/
     ├── classic_result.json
     ├── mapreduce_result.json
     ├── distributed_result.json
-    ├── streaming_result.json
     ├── simulation_result.json
     └── benchmark.json
 ```
@@ -63,7 +61,7 @@ cd map_reduce_groupe2
 python main.py
 ```
 
-Lance dans l'ordre : génération des données, K-Means classique, MapReduce (chunk + multi-serveurs), streaming, benchmark.
+Lance dans l'ordre : génération des données, K-Means classique, MapReduce (chunk + multi-serveurs), benchmark.
 
 ### Option 2 — Dashboard graphique
 
@@ -71,7 +69,7 @@ Lance dans l'ordre : génération des données, K-Means classique, MapReduce (ch
 python dashboard.py
 ```
 
-Interface avec terminal intégré, onglet données et visualisation des clusters. On peut régler K, les itérations, les paramètres de streaming, et lancer chaque algo d'un clic.
+Interface avec terminal intégré, onglet données et visualisation des clusters. On peut régler K, les itérations, et lancer chaque algo d'un clic.
 
 ---
 
@@ -118,22 +116,13 @@ python kmeans_mapreduce.py \
 python kmeans_mapreduce.py data/all_sensors.csv --k 3 --normalize
 ```
 
-#### 7. Streaming
-
-```bash
-python kmeans_streaming.py --waves 6 --sensors-per-wave 100 --k 3
-
-# Avec délai entre vagues
-python kmeans_streaming.py --waves 10 --sensors-per-wave 50 --delay 2.0
-```
-
-#### 8. Benchmark
+#### 7. Benchmark
 
 ```bash
 python benchmark.py
 ```
 
-#### 9. Simulation montée en charge
+#### 8. Simulation montée en charge
 
 ```bash
 # Mode rapide — mesures réelles jusqu'à 1 000 000 capteurs

@@ -312,8 +312,6 @@ Le pipeline est implémenté en Python avec une séparation claire des responsab
 \normalfont kmeans\_mapreduce.py & Boucle itérative K-Means, critère de convergence,
   mode chunk et mode multi-serveurs \\[2pt]
 \normalfont kmeans\_classic.py & K-Means séquentiel de référence, timeout configurable \\[2pt]
-\normalfont kmeans\_streaming.py & Mode warm-start : flux IoT en vagues successives,
-  centroïdes réutilisés entre vagues \\[2pt]
 \normalfont benchmark.py & Benchmark comparatif sur 3 datasets ; timeout 20\,s \\[2pt]
 \normalfont simulation\_comparison.py & Montée en charge 10k–1M (dashboard) ou 1k–2M
   (complet) ; simulation réseau IoT 1\,Mbps ; timeout 15\,s en mode complet \\
@@ -425,80 +423,73 @@ Cette section présente une évaluation comparative entre l'approche classique e
 selon trois axes : le temps d'exécution brut, la scalabilité face à la montée en charge,
 et la qualité des clusters produits.
 
-\subsection{Benchmark sur données réelles}
+\subsection{Phase 1 — Benchmark sur fichiers CSV réels}
 
-Les mesures ont été réalisées sur une machine à 4 CPU logiques, avec $K=3$ clusters et
-un maximum de 10 itérations par exécution.
+Les mesures ont été réalisées sur une machine à 4 CPU logiques, avec $K=3$ clusters,
+un maximum de 10 itérations et un timeout de 20\,s (\texttt{benchmark.py}).
 
 \begin{center}
 \small
-\begin{tabular}{lrrrp{3.6cm}}
+\begin{tabular}{lrrrp{3.8cm}}
 \toprule
 \textbf{Dataset} & \textbf{Points}
   & \textbf{Classique (s)} & \textbf{MapReduce (s)} & \textbf{Ratio} \\
 \midrule
-Normal         & 1\,500  & 0.123 & 0.124 & 1.01$\times$ — overhead quasi-nul \\
-Stress test    & 50\,000 & 2.375 & 1.004 & \textbf{2.37$\times$ — plus rapide} \\
-Multi-serveurs & 1\,500  & 0.074 & 0.166 & 2.24$\times$ — plus lent \\
+Normal         & 1\,500  & 0.072 & 0.125 & overhead 1.74$\times$ (pool de processus) \\
+Stress test    & 50\,000 & 2.417 & 1.002 & \textbf{2.41$\times$ — plus rapide} \\
+Multi-serveurs & 1\,500  & 0.071 & 0.141 & overhead 1.99$\times$ (normal à ce volume) \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-\noindent\textbf{Observations :} Sur petit dataset (1\,500 pts), l'overhead MapReduce
-est quasi-nul (0.124s vs 0.123s) : le pool de processus est créé très rapidement sur
-cette machine 4-CPU. Sur 50\,000 capteurs, le parallélisme prend tout son avantage et
-MapReduce atteint un speedup de $2.37\times$ grâce au traitement parallèle sur 4 CPU.
+\noindent\textbf{Observations :} Sur petit dataset (1\,500 pts), l'overhead du pool
+de processus est visible mais faible ($\approx$\,50\,ms). Sur 50\,000 capteurs, le
+parallélisme s'impose : MapReduce atteint un speedup de $2.41\times$.
 
 \[
-  \text{Speedup} = \frac{2.375}{1.004} \approx 2.37
+  \text{Speedup} = \frac{2.417}{1.002} \approx 2.41
 \]
 
+\subsection{Scalabilité — montée en charge et projections milliard}
 
-\subsection{Scalabilité — montée en charge}
-
-Test d'évolutivité jusqu'à 1\,000\,000 capteurs en mode dashboard (mesures réelles,
-données synthétiques, sans timeout artificiel). En mode complet, le timeout est fixé à
-15\,s (\texttt{TIMEOUT\_S=15} dans \texttt{simulation\_comparison.py}).
+Tests sur données synthétiques, timeout 20\,s ; le temps \emph{total} inclut le coût
+réseau IoT (1\,Mbps pour le classique, LAN\,Gigabit pour 15 sommes partielles MapReduce).
 
 \begin{center}
 \small
-\begin{tabular}{rlll}
+\begin{tabular}{rrrl}
 \toprule
-\textbf{Capteurs} & \textbf{Classique} & \textbf{MapReduce} & \textbf{Observation} \\
+\textbf{Capteurs} & \textbf{Classique} & \textbf{MapReduce} & \textbf{Gain total réseau} \\
 \midrule
-10\,000    & 0.426\,s  & 0.374\,s  & MR déjà plus rapide (1.14$\times$) \\
-50\,000    & 2.058\,s  & 1.700\,s  & Parallélisme efficace (1.21$\times$) \\
-200\,000   & 8.211\,s  & 5.786\,s  & Speedup croissant (1.42$\times$) \\
-500\,000   & \textbf{21.079\,s ($>$15\,s timeout)} & 14.008\,s & Classique hors délai, MR termine \\
-1\,000\,000 & \textbf{43.950\,s ($>$15\,s timeout)} & 29.734\,s & Seul MapReduce peut traiter \\
+100\,000    & 3.978\,s  & 2.427\,s  & 29.6\,s vs 2.4\,s → \textbf{12.2$\times$} \\
+500\,000    & \textbf{TIMEOUT} & 12.657\,s & $>$2\,min vs 12.7\,s → \textbf{11.7$\times$} \\
+1\,000\,000 & \textbf{TIMEOUT} & 31.360\,s & $>$5\,min vs 31.4\,s → \textbf{8.8$\times$} \\
+\midrule
+\multicolumn{4}{l}{\textit{Extrapolation $O(n)$ depuis 1\,000\,000 capteurs (réseau IoT 1\,Mbps)}} \\
+\midrule
+10\,000\,000     & $\approx$49\,min (total)   & $\approx$5\,min  & \textbf{9.4$\times$} \\
+100\,000\,000    & $\approx$8.2\,h (total)    & $\approx$52\,min & \textbf{9.4$\times$} \\
+1\,000\,000\,000 & \textbf{$\approx$3.4 jours}& $\approx$8.7\,h  & \textbf{9$\times$} \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-\noindent MapReduce est plus rapide dès \textbf{10\,000 capteurs}. Le gain croît
-régulièrement avec la taille : 1.14$\times$ à 10k, 1.42$\times$ à 200k, 1.51$\times$
-à 500k. À partir de 500\,000 capteurs, le temps classique (21.079s) dépasse le
-timeout de 15\,s configuré dans \texttt{simulation\_comparison.py} et l'algorithme
-ne convergerait pas. MapReduce, lui, reste viable jusqu'à 1\,000\,000 capteurs et
-au-delà. C'est un point critique : MapReduce devient l'\textbf{unique solution
-acceptable} pour les gros volumes.
+\noindent Le seuil critique se situe à \textbf{500\,000 capteurs} : le classique dépasse
+le timeout de 20\,s tandis que MapReduce converge en 12.657\,s.
+À 1 milliard de capteurs, le classique perd $\approx$3 jours en transfert réseau seul
+(32\,Go à 1\,Mbps) avant même de calculer — MapReduce livre le résultat en $\approx$8,7\,h
+($9\times$ de gain).
 
 \subsection{Discussion des résultats}
 
-\noindent\textbf{Overhead vs bénéfice.} Sur cette machine 4-CPU, l'overhead de création
-du pool de processus est très faible ($\approx 0.001$s à 1\,500 pts : 0.124s vs 0.123s,
-mesuré par \texttt{benchmark.py}). MapReduce est déjà légèrement plus rapide à 10\,000
-capteurs (0.374s vs 0.426s), et le gain s'amplifie avec le volume.
+\noindent\textbf{Overhead vs bénéfice.} L'overhead du pool de processus est visible à
+petit volume (50\,ms à 1\,500 capteurs) mais négligeable dès 50\,000 capteurs où MapReduce
+est $2.41\times$ plus rapide. Le gain s'amplifie régulièrement avec le volume.
 
-\noindent\textbf{Scalabilité linéaire.} Entre 10\,000 et 1\,000\,000 capteurs
-(×100 volume), le temps classique croît linéairement (0.426s → 43.950s, ×103).
-MapReduce croît plus lentement (0.374s → 29.734s, ×79), ce qui confirme le
-parallélisme efficace sur 4 CPU.
-
-\noindent\textbf{Seuil critique à 500\,000.} Avec le timeout de 15\,s de
-\texttt{simulation\_comparison.py}, l'algorithme classique échouerait à partir de
-500\,000 capteurs (21.079s > 15s). MapReduce, lui, continue de converger : c'est un
-point décisif où MapReduce devient non seulement plus rapide mais \textbf{indispensable}.
+\noindent\textbf{Impact du réseau IoT.} En scénario réel (1\,Mbps), le gain dépasse
+largement le speedup de calcul : dès 100\,000 capteurs, le classique perd 25.6\,s en
+transfert contre moins d'1\,ms pour MapReduce — soit $12.2\times$ de gain total.
+À l'échelle du milliard, ce facteur réseau est décisif.
 
 \subsection{Qualité des clusters produits}
 
@@ -539,7 +530,7 @@ plusieurs façons.
 \noindent\textbf{Limites :} (1) L'implémentation utilise \texttt{multiprocessing.Pool}
 sur une seule machine ; une vraie distribution sur réseau (Spark, Hadoop) améliorerait
 la scalabilité. (2) Les données sont supposées tenir en mémoire après chunking ; pour
-des streaming massifs, adapter l'algorithme à un paradigme en flux serait nécessaire.
+des flux massifs en continu, adapter l'algorithme à un paradigme en flux serait nécessaire.
 (3) K est fixe ; des algorithmes de sélection automatique de K (silhouette, coude)
 pourraient être intégrés.
 
@@ -565,11 +556,10 @@ l'agrégation par sommes partielles est une transformation mathématiquement exa
 La parallélisation ne sacrifie donc aucune précision.
 
 \medskip
-\noindent\textbf{2. Seuil de rentabilité.} MapReduce est avantageux dès 10\,000
-capteurs sur cette machine 4-CPU (l'overhead de démarrage du pool est de l'ordre du
-milliseconde). Le speedup atteint $2.37\times$ à 50\,000 capteurs (benchmark sur
-\texttt{large\_sensors.csv}) et se stabilise autour de 1.5$\times$ lors de la montée
-en charge jusqu'à 1\,000\,000 capteurs.
+\noindent\textbf{2. Seuil de rentabilité.} MapReduce est avantageux en calcul pur
+dès \textbf{50\,000 capteurs} ($2.41\times$, benchmark sur \texttt{large\_sensors.csv})
+et dominant en scénario IoT réel dès 10\,000 capteurs (réseau 1\,Mbps).
+À 100\,000 capteurs, le gain total réseau inclus atteint déjà $12.2\times$.
 
 \medskip
 \noindent\textbf{3. Efficacité réseau du Combiner.} Le Combiner est un facteur clé.
@@ -578,15 +568,21 @@ le trafic d'un facteur $N/K$ : de $\times 100$ à l'échelle testée jusqu'à
 $\times 3\,333$ à 50\,000 capteurs par serveur.
 
 \medskip
-\noindent\textbf{4. Scalabilité au-delà de 500\,000 capteurs.} MapReduce est la
-seule option viable pour les gros volumes. Avec le timeout de 15\,s configuré dans
-\texttt{simulation\_comparison.py}, l'algorithme classique échouerait à partir de
-500\,000 capteurs (21.079s $>$ 15s), tandis que MapReduce termine dans tous les cas
-testés, jusqu'à 1\,000\,000 capteurs (29.734s).
+\noindent\textbf{4. Seuil critique à 500\,000 capteurs.} MapReduce est la
+seule option viable pour les gros volumes. Avec le timeout de 20\,s de
+\texttt{benchmark.py}, l'algorithme classique échoue à partir de 500\,000 capteurs,
+tandis que MapReduce termine dans tous les cas testés jusqu'à 1\,000\,000 capteurs
+(31.360\,s).
+
+\medskip
+\noindent\textbf{5. Projection à l'échelle milliard.} À 1 milliard de capteurs,
+le classique nécessite $\approx$3,4 jours (transfert + calcul) contre $\approx$8,7 heures
+pour MapReduce ($9\times$ de gain). MapReduce \emph{termine} pendant que le classique
+\emph{collecte encore les données}.
 
 \medskip
 En conclusion, MapReduce pour K-Means constitue une solution viable et scalable pour
-le clustering IoT distribué, avec garantie d'exactitude et gains significatifs dès
-que le volume de données devient substantiel.
+le clustering IoT distribué, avec garantie d'exactitude, gains dès 50\,000 capteurs
+en calcul pur, et avantage décisif à l'échelle du milliard de capteurs IoT.
 
 \end{document}

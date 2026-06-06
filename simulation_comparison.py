@@ -276,13 +276,20 @@ def print_section(title):
 # Simulation principale
 # ─────────────────────────────────────────────────────────────────────
 def main():
+    global K, MAX_ITER, TIMEOUT_S
     parser = argparse.ArgumentParser()
     parser.add_argument("--dashboard", action="store_true",
                         help="Mode rapide pour le dashboard (paliers réduits)")
+    parser.add_argument("--k",        type=int, default=K,        help="Nombre de clusters")
+    parser.add_argument("--max-iter", type=int, default=MAX_ITER, help="Itérations max")
+    parser.add_argument("--timeout",  type=int, default=TIMEOUT_S, help="Timeout classique (s)")
     args = parser.parse_args()
+    K        = args.k
+    MAX_ITER = args.max_iter
+    TIMEOUT_S = args.timeout
 
     sizes     = DASHBOARD_SIZES if args.dashboard else DATASET_SIZES
-    timeout_s = TIMEOUT_S  # utilisé uniquement en mode complet (non-dashboard)
+    timeout_s = TIMEOUT_S
 
     cpu_count = multiprocessing.cpu_count()
 

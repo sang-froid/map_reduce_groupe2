@@ -1,32 +1,125 @@
-[
-  {
-    "dataset": "1 500 capteurs (normal)",
-    "n_points": 1500,
-    "classic_time": 0.123,
-    "classic_iters": 10,
-    "classic_timeout": false,
-    "mr_time": 0.124,
-    "mr_iters": 10,
-    "mr_timeout": false
+{
+  "config": {
+    "k": 3,
+    "max_iter": 10,
+    "timeout_s": 20,
+    "n_servers": 5,
+    "cpu_count": 4,
+    "iot_mbps": 1.0,
+    "lan_mbps": 1000
   },
-  {
-    "dataset": "50 000 capteurs (stress)",
-    "n_points": 50000,
-    "classic_time": 2.375,
-    "classic_iters": 10,
-    "classic_timeout": false,
-    "mr_time": 1.004,
-    "mr_iters": 10,
-    "mr_timeout": false
-  },
-  {
-    "dataset": "multi-serveurs (1 500)",
-    "n_points": 1500,
-    "classic_timeout": false,
-    "mr_timeout": false,
-    "classic_time": 0.074,
-    "classic_iters": 10,
-    "mr_time": 0.166,
-    "mr_iters": 10
-  }
-]
+  "phase1_files": [
+    {
+      "dataset": "1 500 capteurs (réels)",
+      "n_points": 1500,
+      "classic_s": 0.07,
+      "classic_iters": 10,
+      "classic_timeout": false,
+      "mr_s": 0.141,
+      "mr_iters": 10,
+      "mr_timeout": false
+    },
+    {
+      "dataset": "50 000 capteurs (stress)",
+      "n_points": 50000,
+      "classic_s": 2.349,
+      "classic_iters": 10,
+      "classic_timeout": false,
+      "mr_s": 1.02,
+      "mr_iters": 10,
+      "mr_timeout": false
+    },
+    {
+      "dataset": "1 500 multi-serveurs",
+      "n_points": 1500,
+      "classic_s": 0.075,
+      "classic_iters": 10,
+      "classic_timeout": false,
+      "mr_s": 0.185,
+      "mr_iters": 10,
+      "mr_timeout": false
+    }
+  ],
+  "phase2_scalability": [
+    {
+      "dataset": "100,000 capteurs",
+      "n_points": 100000,
+      "classic_s": 4.097,
+      "classic_iters": 10,
+      "classic_timeout": false,
+      "mr_s": 2.605,
+      "mr_iters": 10,
+      "mr_timeout": false,
+      "classic_transfer_s": 25.6,
+      "mr_transfer_s": 3.8e-05,
+      "classic_total_s": 29.7,
+      "mr_total_s": 2.605
+    },
+    {
+      "dataset": "500,000 capteurs",
+      "n_points": 500000,
+      "classic_s": 20,
+      "classic_iters": null,
+      "classic_timeout": true,
+      "mr_s": 12.329,
+      "mr_iters": 10,
+      "mr_timeout": false,
+      "classic_transfer_s": 128.0,
+      "mr_transfer_s": 3.8e-05,
+      "classic_total_s": 148.0,
+      "mr_total_s": 12.329
+    },
+    {
+      "dataset": "1,000,000 capteurs",
+      "n_points": 1000000,
+      "classic_s": 20,
+      "classic_iters": null,
+      "classic_timeout": true,
+      "mr_s": 30.983,
+      "mr_iters": 10,
+      "mr_timeout": false,
+      "classic_transfer_s": 256.0,
+      "mr_transfer_s": 3.8e-05,
+      "classic_total_s": 276.0,
+      "mr_total_s": 30.983
+    }
+  ],
+  "phase3_projections": [
+    {
+      "n": 10000000,
+      "classic_compute_s": 409.7,
+      "classic_transfer_s": 2560.0,
+      "classic_total_s": 2969.7,
+      "mr_compute_s": 309.8,
+      "mr_transfer_s": 0.0,
+      "mr_total_s": 309.8,
+      "ram_gb": 2.0,
+      "gain_x": 9.6,
+      "note": "extrapolation O(n) + réseau IoT 1 Mbps"
+    },
+    {
+      "n": 100000000,
+      "classic_compute_s": 4097.0,
+      "classic_transfer_s": 25600.0,
+      "classic_total_s": 29697.0,
+      "mr_compute_s": 3098.3,
+      "mr_transfer_s": 0.0,
+      "mr_total_s": 3098.3,
+      "ram_gb": 20.0,
+      "gain_x": 9.6,
+      "note": "extrapolation O(n) + réseau IoT 1 Mbps"
+    },
+    {
+      "n": 1000000000,
+      "classic_compute_s": 40970.0,
+      "classic_transfer_s": 256000.0,
+      "classic_total_s": 296970.0,
+      "mr_compute_s": 30983.0,
+      "mr_transfer_s": 0.0,
+      "mr_total_s": 30983.0,
+      "ram_gb": 200.0,
+      "gain_x": 9.6,
+      "note": "extrapolation O(n) + réseau IoT 1 Mbps"
+    }
+  ]
+}

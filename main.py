@@ -7,8 +7,7 @@ Lance dans l'ordre :
     3. K-means classique avec timeout (grand dataset)
     4. K-means MapReduce mode chunk
     5. K-means MapReduce mode multi-serveurs
-    6. K-means streaming (génération continue)
-    7. Benchmark comparatif
+    6. Benchmark comparatif
 
 Usage :
     python main.py
@@ -111,17 +110,9 @@ centroids_dist, counts_dist, iters_dist, dur_dist = run_kmeans_mapreduce_distrib
 print_summary(centroids_dist, counts_dist)
 
 # ─────────────────────────────────────────────
-# 6. Streaming — génération continue
+# 6. Benchmark comparatif
 # ─────────────────────────────────────────────
-titre("ÉTAPE 6 — K-means MapReduce mode Streaming (6 vagues de données)")
-from kmeans_streaming import run_streaming_kmeans
-
-run_streaming_kmeans(k=3, n_waves=6, sensors_per_wave=100, max_iter_per_wave=3)
-
-# ─────────────────────────────────────────────
-# 7. Benchmark comparatif
-# ─────────────────────────────────────────────
-titre("ÉTAPE 7 — Benchmark comparatif")
+titre("ÉTAPE 6 — Benchmark comparatif")
 from benchmark import run_benchmark
 
 run_benchmark()
