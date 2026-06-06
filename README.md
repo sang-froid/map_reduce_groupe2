@@ -14,7 +14,6 @@ On dispose de 5 serveurs régionaux (Nord, Centre, Sud, Ouest, Est), chacun coll
 
 ```
 map_reduce_groupe2/
-├── main.py                  # Lance tout dans l'ordre (génération → benchmark)
 ├── dashboard.py             # Interface Tkinter — dark theme
 ├── generate_data.py         # Génère les données simulées des 5 serveurs
 ├── kmeans_classic.py        # K-Means séquentiel avec K-Means++ et timeout
@@ -55,82 +54,11 @@ cd map_reduce_groupe2
 
 ## Lancer le projet
 
-### Option 1 — Tout d'un coup
-
-```bash
-python main.py
-```
-
-Lance dans l'ordre : génération des données, K-Means classique, MapReduce (chunk + multi-serveurs), benchmark.
-
-### Option 2 — Dashboard graphique
-
 ```bash
 python dashboard.py
 ```
 
-Interface avec terminal intégré, onglet données et visualisation des clusters. On peut régler K, les itérations, et lancer chaque algo d'un clic.
-
----
-
-### Exécution étape par étape
-
-#### 1. Générer les données
-
-```bash
-python generate_data.py
-```
-
-#### 2. K-Means classique
-
-```bash
-python kmeans_classic.py --input data/all_sensors.csv --k 3
-```
-
-#### 3. Avec timeout (grand dataset)
-
-```bash
-python kmeans_classic.py --input data/large_sensors.csv --k 3 --timeout 30
-```
-
-#### 4. MapReduce — mode chunk
-
-```bash
-python kmeans_mapreduce.py data/all_sensors.csv --k 3 --max-iter 10
-```
-
-#### 5. MapReduce — mode multi-serveurs (scénario IoT)
-
-```bash
-python kmeans_mapreduce.py \
-    --servers data/server_nord.csv data/server_centre.csv \
-              data/server_sud.csv data/server_ouest.csv data/server_est.csv \
-    --k 3 --max-iter 10
-```
-
-#### 6. Avec normalisation z-score
-
-À activer quand les unités sont très différentes (ex. kbps vs °C) :
-
-```bash
-python kmeans_mapreduce.py data/all_sensors.csv --k 3 --normalize
-```
-
-#### 7. Benchmark
-
-```bash
-python benchmark.py
-```
-
-#### 8. Simulation montée en charge
-
-```bash
-# Mode rapide — mesures réelles jusqu'à 1 000 000 capteurs
-python simulation_comparison.py --dashboard
-
-# Mode complet — paliers 1k–2M, timeout 15s sur le classique
-python simulation_comparison.py
-```
+Interface avec terminal intégré, onglet données et visualisation des clusters. On peut régler K, les itérations, et lancer chaque algo (K-Means classique, MapReduce, benchmark, simulation) d'un clic.
 
 ---
 
