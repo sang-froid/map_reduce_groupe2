@@ -403,8 +403,8 @@ suffisante des résultats tout en limitant les itérations.
 \subsection{Exemple concret : 6 capteurs sur 2 serveurs}
 
 Pour valider le pipeline, on considère un exemple minimal : 6 capteurs répartis
-sur 2 serveurs, $K=2$ clusters, et des centroïdes initiaux choisis par K-Means++ —
-$C_0=[35,80,0.5,120]$ (profil rural) et $C_1=[22,45,2.5,500]$ (profil urbain).
+sur 2 serveurs, $K=2$ clusters, et des centroïdes initiaux choisis par K-Means++,
+à savoir $C_0=[35,80,0.5,120]$ (profil rural) et $C_1=[22,45,2.5,500]$ (profil urbain).
 
 Durant la phase \textbf{MAP+COMBINE}, le serveur A regroupe les capteurs S1 et S2
 vers $C_0$ et S3 vers $C_1$ ; le serveur B affecte S4 à $C_0$, et S5 et S6 à $C_1$.
@@ -452,8 +452,7 @@ parallélisme s'impose : MapReduce atteint un speedup de $2.41\times$.
 
 \subsection{Scalabilité — montée en charge et projections milliard}
 
-Tests sur données synthétiques, timeout 20\,s ; le temps \emph{total} inclut le coût
-réseau IoT (1\,Mbps pour le classique, LAN\,Gigabit pour 15 sommes partielles MapReduce).
+Ces tests ont été réalisés sur données synthétiques avec un timeout de 20\,s. Le temps \emph{total} inclut le coût réseau IoT (1\,Mbps pour le classique, LAN\,Gigabit pour 15 sommes partielles MapReduce).
 
 \begin{center}
 \small
@@ -477,7 +476,7 @@ réseau IoT (1\,Mbps pour le classique, LAN\,Gigabit pour 15 sommes partielles M
 \noindent Le seuil critique se situe à \textbf{500\,000 capteurs} : le classique dépasse
 le timeout de 20\,s tandis que MapReduce converge en 12.657\,s.
 À 1 milliard de capteurs, le classique perd $\approx$3 jours en transfert réseau seul
-(32\,Go à 1\,Mbps) avant même de calculer — MapReduce livre le résultat en $\approx$8,7\,h
+(32\,Go à 1\,Mbps) avant même de calculer, tandis que MapReduce livre le résultat en $\approx$8,7\,h
 ($9\times$ de gain).
 
 \subsection{Discussion des résultats}
@@ -488,7 +487,7 @@ est $2.41\times$ plus rapide. Le gain s'amplifie régulièrement avec le volume.
 
 \noindent\textbf{Impact du réseau IoT.} En scénario réel (1\,Mbps), le gain dépasse
 largement le speedup de calcul : dès 100\,000 capteurs, le classique perd 25.6\,s en
-transfert contre moins d'1\,ms pour MapReduce — soit $12.2\times$ de gain total.
+transfert contre moins d'1\,ms pour MapReduce, soit $12.2\times$ de gain total.
 À l'échelle du milliard, ce facteur réseau est décisif.
 
 \subsection{Qualité des clusters produits}
@@ -527,18 +526,20 @@ ne dégrade en rien la qualité du clustering.
 L'approche actuelle repose sur plusieurs hypothèses et pourrait être étendue de
 plusieurs façons.
 
-\noindent\textbf{Limites :} (1) L'implémentation utilise \texttt{multiprocessing.Pool}
-sur une seule machine ; une vraie distribution sur réseau (Spark, Hadoop) améliorerait
-la scalabilité. (2) Les données sont supposées tenir en mémoire après chunking ; pour
-des flux massifs en continu, adapter l'algorithme à un paradigme en flux serait nécessaire.
-(3) K est fixe ; des algorithmes de sélection automatique de K (silhouette, coude)
-pourraient être intégrés.
+\noindent\textbf{Limites :}
+\begin{enumerate}
+\item L'implémentation utilise \texttt{multiprocessing.Pool} sur une seule machine ; une vraie distribution sur réseau (Spark, Hadoop) améliorerait la scalabilité.
+\item Les données sont supposées tenir en mémoire après chunking ; pour des flux massifs en continu, adapter l'algorithme à un paradigme en flux serait nécessaire.
+\item $K$ est fixe ; des algorithmes de sélection automatique de $K$ (silhouette, coude) pourraient être intégrés.
+\end{enumerate}
 
-\noindent\textbf{Perspectives :} (1) Porter l'implémentation sur Apache Spark pour
-bénéficier de distribution complète et tolérance aux pannes. (2) Implémenter K-Means++
-distribué (actuellement centralisé). (3) Ajouter d'autres métriques de qualité
-(Davies-Bouldin, Calinski-Harabasz) et d'autres initialisations (k-means||).
-(4) Évaluer la convergence avec des critères d'arrêt adaptatifs.
+\noindent\textbf{Perspectives :}
+\begin{enumerate}
+\item Porter l'implémentation sur Apache Spark pour bénéficier d'une distribution complète et d'une tolérance aux pannes.
+\item Implémenter K-Means++ distribué (actuellement centralisé).
+\item Ajouter d'autres métriques de qualité (Davies-Bouldin, Calinski-Harabasz) et d'autres initialisations (k-means||).
+\item Évaluer la convergence avec des critères d'arrêt adaptatifs.
+\end{enumerate}
 
 % ══════════════════════════════════════════════════════════════════════
 %  6. CONCLUSION
@@ -547,41 +548,38 @@ distribué (actuellement centralisé). (3) Ajouter d'autres métriques de qualit
 
 Ce travail a mis en œuvre et évalué le paradigme MapReduce pour le clustering K-Means
 sur un réseau de capteurs IoT distribués. Les résultats obtenus permettent de dégager
-quatre enseignements principaux.
+cinq enseignements principaux.
 
-\medskip
-\noindent\textbf{1. Exactitude mathématique.} MapReduce produit exactement le même
-résultat que l'algorithme classique. La SSE est identique ($3\,550\,130.6$), car
-l'agrégation par sommes partielles est une transformation mathématiquement exacte.
-La parallélisation ne sacrifie donc aucune précision.
+\begin{enumerate}
 
-\medskip
-\noindent\textbf{2. Seuil de rentabilité.} MapReduce est avantageux en calcul pur
-dès \textbf{50\,000 capteurs} ($2.41\times$, benchmark sur \texttt{large\_sensors.csv})
-et dominant en scénario IoT réel dès 10\,000 capteurs (réseau 1\,Mbps).
-À 100\,000 capteurs, le gain total réseau inclus atteint déjà $12.2\times$.
+\item \textbf{Exactitude mathématique.} MapReduce produit exactement le même résultat
+que l'algorithme classique. La SSE est identique ($3\,550\,130.6$), car l'agrégation
+par sommes partielles est une transformation mathématiquement exacte. La parallélisation
+ne sacrifie donc aucune précision.
 
-\medskip
-\noindent\textbf{3. Efficacité réseau du Combiner.} Le Combiner est un facteur clé.
-En réduisant le volume de $N$ enregistrements à $K$ sommes partielles, il divise
-le trafic d'un facteur $N/K$ : de $\times 100$ à l'échelle testée jusqu'à
-$\times 3\,333$ à 50\,000 capteurs par serveur.
+\item \textbf{Seuil de rentabilité.} MapReduce est avantageux en calcul pur dès
+\textbf{50\,000 capteurs} ($2.41\times$, benchmark sur \texttt{large\_sensors.csv})
+et dominant en scénario IoT réel dès 10\,000 capteurs (réseau 1\,Mbps). À 100\,000
+capteurs, le gain total réseau inclus atteint déjà $12.2\times$.
 
-\medskip
-\noindent\textbf{4. Seuil critique à 500\,000 capteurs.} MapReduce est la
-seule option viable pour les gros volumes. Avec le timeout de 20\,s de
-\texttt{benchmark.py}, l'algorithme classique échoue à partir de 500\,000 capteurs,
-tandis que MapReduce termine dans tous les cas testés jusqu'à 1\,000\,000 capteurs
-(31.360\,s).
+\item \textbf{Efficacité réseau du Combiner.} Le Combiner est un facteur clé. En
+réduisant le volume de $N$ enregistrements à $K$ sommes partielles, il divise le
+trafic d'un facteur $N/K$ : de $\times 100$ à l'échelle testée jusqu'à $\times 3\,333$
+à 50\,000 capteurs par serveur.
 
-\medskip
-\noindent\textbf{5. Projection à l'échelle milliard.} À 1 milliard de capteurs,
-le classique nécessite $\approx$3,4 jours (transfert + calcul) contre $\approx$8,7 heures
-pour MapReduce ($9\times$ de gain). MapReduce \emph{termine} pendant que le classique
+\item \textbf{Seuil critique à 500\,000 capteurs.} MapReduce est la seule option
+viable pour les gros volumes. Avec le timeout de 20\,s de \texttt{benchmark.py},
+l'algorithme classique échoue à partir de 500\,000 capteurs, tandis que MapReduce
+termine dans tous les cas testés jusqu'à 1\,000\,000 capteurs (31.360\,s).
+
+\item \textbf{Projection à l'échelle milliard.} À 1 milliard de capteurs, le classique
+nécessite $\approx$3,4 jours (transfert + calcul) contre $\approx$8,7 heures pour
+MapReduce ($9\times$ de gain). MapReduce \emph{termine} pendant que le classique
 \emph{collecte encore les données}.
 
-\medskip
-En conclusion, MapReduce pour K-Means constitue une solution viable et scalable pour
+\end{enumerate}
+
+En définitive, MapReduce pour K-Means constitue une solution viable et scalable pour
 le clustering IoT distribué, avec garantie d'exactitude, gains dès 50\,000 capteurs
 en calcul pur, et avantage décisif à l'échelle du milliard de capteurs IoT.
 
