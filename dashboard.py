@@ -187,6 +187,7 @@ class Dashboard(tk.Tk):
         self._running   = False
         self._spin_idx  = 0
         self._spin_job  = None
+        self._ran_keys  = set()   # algorithmes lancés dans cette session
         # données browser
         self._all_rows  = []
         self._filtered  = []
@@ -824,6 +825,19 @@ class Dashboard(tk.Tk):
             "benchmark":   "results/benchmark.json",
             "simulation":  "results/simulation_result.json",
         }
+        _btn_labels = {
+            "classic":     "▶ K-Means Classique",
+            "mapreduce":   "⚡ MapReduce — Grande échelle",
+            "distributed": "◉ MapReduce — Distribué",
+            "benchmark":   "≡ Benchmark complet",
+            "simulation":  "⧗ Simulation IoT Scale",
+        }
+        if key not in self._ran_keys:
+            self._rclear()
+            self._rwrite(f"\n  Aucun résultat disponible pour cette session.\n\n", "yellow")
+            self._rwrite(f"  → Lancez d'abord  {_btn_labels.get(key, key)}  depuis la barre latérale.\n", "muted")
+            self.nb.select(2)
+            return
         path = os.path.join(PROJECT_DIR, paths.get(key, ""))
         if not os.path.exists(path):
             self._rclear()
@@ -1430,6 +1444,7 @@ class Dashboard(tk.Tk):
                 self._load_csv()
                 self.nb.select(1)
             elif result_key:
+                self._ran_keys.add(result_key)
                 self._display_result(result_key)
         else:
             self._write(f"\n  ✗ Erreur (code {rc})\n\n", "red")
