@@ -1,40 +1,137 @@
 {
-  "timeout_s": 12,
   "k": 3,
   "n_servers": 5,
   "cpu_count": 4,
+  "classic_demo": {
+    "n_points": 1500,
+    "duration_sec": 0.0717,
+    "iterations": 10,
+    "centroids": [
+      [
+        27.627,
+        59.3475,
+        1.0815,
+        260.0021
+      ],
+      [
+        34.3039,
+        78.2876,
+        0.5328,
+        123.5158
+      ],
+      [
+        22.227,
+        45.1935,
+        2.4933,
+        512.4881
+      ]
+    ],
+    "cluster_counts": {
+      "0": 524,
+      "1": 525,
+      "2": 451
+    }
+  },
   "results": [
     {
-      "n": 1500,
-      "classic_s": 0.057,
-      "mr_s": 0.125,
+      "n": 10000,
+      "classic_s": 0.426,
+      "classic_transfer_s": 2.441,
+      "classic_total_s": 2.867,
+      "mr_s": 0.374,
+      "mr_transfer_s": 3.7e-05,
+      "mr_total_s": 0.374,
       "timed_out": false,
-      "classic_iters": 8,
-      "mr_iters": 8
-    },
-    {
-      "n": 30000,
-      "classic_s": 0.907,
-      "mr_s": 0.847,
-      "timed_out": false,
-      "classic_iters": 7,
-      "mr_iters": 10
-    },
-    {
-      "n": 100000,
-      "classic_s": 4.267,
-      "mr_s": 2.62,
-      "timed_out": false,
+      "mr_timed_out": false,
       "classic_iters": 10,
       "mr_iters": 10
     },
     {
-      "n": 300000,
-      "classic_s": 12,
-      "mr_s": 8.348,
-      "timed_out": true,
-      "classic_iters": null,
+      "n": 50000,
+      "classic_s": 2.058,
+      "classic_transfer_s": 12.207,
+      "classic_total_s": 14.265,
+      "mr_s": 1.7,
+      "mr_transfer_s": 3.7e-05,
+      "mr_total_s": 1.7,
+      "timed_out": false,
+      "mr_timed_out": false,
+      "classic_iters": 10,
       "mr_iters": 10
+    },
+    {
+      "n": 200000,
+      "classic_s": 8.211,
+      "classic_transfer_s": 48.828,
+      "classic_total_s": 57.039,
+      "mr_s": 5.786,
+      "mr_transfer_s": 3.7e-05,
+      "mr_total_s": 5.786,
+      "timed_out": false,
+      "mr_timed_out": false,
+      "classic_iters": 10,
+      "mr_iters": 10
+    },
+    {
+      "n": 500000,
+      "classic_s": 21.079,
+      "classic_transfer_s": 122.07,
+      "classic_total_s": 143.15,
+      "mr_s": 14.008,
+      "mr_transfer_s": 3.7e-05,
+      "mr_total_s": 14.008,
+      "timed_out": false,
+      "mr_timed_out": false,
+      "classic_iters": 10,
+      "mr_iters": 10
+    },
+    {
+      "n": 1000000,
+      "classic_s": 43.95,
+      "classic_transfer_s": 244.141,
+      "classic_total_s": 288.09,
+      "mr_s": 29.734,
+      "mr_transfer_s": 3.7e-05,
+      "mr_total_s": 29.734,
+      "timed_out": false,
+      "mr_timed_out": false,
+      "classic_iters": 10,
+      "mr_iters": 10
+    }
+  ],
+  "projections": [
+    {
+      "n": 10000000,
+      "classic_compute_s": 439.5,
+      "classic_transfer_s": 2441.4,
+      "classic_total_s": 2880.9,
+      "mr_compute_s": 297.3,
+      "mr_transfer_s": 0.0,
+      "mr_total_s": 297.3,
+      "ram_gb": 2.0,
+      "note": "projection O(n) + réseau IoT 1 Mbps"
+    },
+    {
+      "n": 100000000,
+      "classic_compute_s": 4395.0,
+      "classic_transfer_s": 24414.1,
+      "classic_total_s": 28809.1,
+      "mr_compute_s": 2973.4,
+      "mr_transfer_s": 0.0,
+      "mr_total_s": 2973.4,
+      "ram_gb": 20.0,
+      "note": "projection O(n) + réseau IoT 1 Mbps"
+    },
+    {
+      "n": 1000000000,
+      "classic_compute_s": 43950.0,
+      "classic_transfer_s": 244140.6,
+      "classic_total_s": 288090.6,
+      "mr_compute_s": 29734.0,
+      "mr_transfer_s": 0.0,
+      "mr_total_s": 29734.0,
+      "ram_gb": 200.0,
+      "note": "projection O(n) + réseau IoT 1 Mbps"
     }
   ]
 }

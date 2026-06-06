@@ -5,6 +5,7 @@ Groupe 2 — Master IFRI Big Data
 import multiprocessing
 multiprocessing.freeze_support()
 
+import re
 import tkinter as tk
 from tkinter import ttk
 import subprocess
@@ -13,6 +14,8 @@ import sys
 import os
 import json
 import csv
+
+_ANSI_RE = re.compile(r'\033\[[0-9;]*[mKABCDEFGHJnsu]')
 
 # ── Palette ───────────────────────────────────────────────────────────
 BG        = "#080812"
@@ -54,15 +57,32 @@ PROJECT_DIR    = os.path.dirname(os.path.abspath(__file__))
 SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 PAGE_SIZE      = 100
 
-DATA_FILES = [
-    ("server_nord.csv",   "Serveur Nord   (300 capteurs)"),
-    ("server_centre.csv", "Serveur Centre (300 capteurs)"),
-    ("server_sud.csv",    "Serveur Sud    (300 capteurs)"),
-    ("server_ouest.csv",  "Serveur Ouest  (300 capteurs)"),
-    ("server_est.csv",    "Serveur Est    (300 capteurs)"),
-    ("all_sensors.csv",   "Tous les capteurs (1 500)"),
-    ("large_sensors.csv", "Stress test (50 000 capteurs)"),
+DATA_FILES_STATIC = [
+    ("server_nord.csv",   "Serveur Nord       (300 capteurs)"),
+    ("server_centre.csv", "Serveur Centre     (300 capteurs)"),
+    ("server_sud.csv",    "Serveur Sud        (300 capteurs)"),
+    ("server_ouest.csv",  "Serveur Ouest      (300 capteurs)"),
+    ("server_est.csv",    "Serveur Est        (300 capteurs)"),
+    ("all_sensors.csv",   "Tous les capteurs  (1 500)"),
+    ("large_sensors.csv", "Stress test        (50 000 capteurs)"),
 ]
+
+_SIM_LABELS = {
+    "sim_10k.csv":  "Simulation — 10 000 capteurs",
+    "sim_50k.csv":  "Simulation — 50 000 capteurs",
+    "sim_200k.csv": "Simulation — 200 000 capteurs",
+    "sim_500k.csv": "Simulation — 500 000 capteurs",
+    "sim_1M.csv":   "Simulation — 1 000 000 capteurs",
+}
+
+def _get_data_files():
+    """Retourne la liste des fichiers CSV disponibles (statiques + simulation)."""
+    data_dir = os.path.join(PROJECT_DIR, "data")
+    files = list(DATA_FILES_STATIC)
+    for fname, label in _SIM_LABELS.items():
+        if os.path.exists(os.path.join(data_dir, fname)):
+            files.append((fname, label))
+    return files
 
 CSV_COLS = ["sensor_id", "region", "latitude", "longitude",
             "temperature", "humidity", "vibration", "network_traffic"]
@@ -72,28 +92,70 @@ COL_W    = [50, 110, 70, 70, 80, 70, 70, 90]
 
 def _interpret_cluster(centroid):
     temp, hum, vib, net = centroid
-    tags = []
-    if temp >= 32:     tags.append("temp. élevée")
-    elif temp <= 24:   tags.append("temp. fraîche")
-    else:              tags.append("temp. modérée")
-    if hum >= 70:      tags.append("forte humidité")
-    elif hum <= 48:    tags.append("air sec")
-    if vib >= 2.0:     tags.append("vibrations intenses")
-    elif vib <= 0.8:   tags.append("vibrations faibles")
-    if net >= 420:     tags.append("trafic réseau dense")
-    elif net <= 160:   tags.append("trafic réseau faible")
 
-    if temp >= 32 and hum >= 70:
+    # ── Température ───────────────────────────────────────────────────
+    if temp >= 34:
+        t_tag = f"très chaud ({temp:.1f}°C)"
+    elif temp >= 30:
+        t_tag = f"chaud ({temp:.1f}°C)"
+    elif temp >= 26:
+        t_tag = f"tempéré ({temp:.1f}°C)"
+    elif temp >= 22:
+        t_tag = f"frais ({temp:.1f}°C)"
+    else:
+        t_tag = f"froid ({temp:.1f}°C)"
+
+    # ── Humidité ──────────────────────────────────────────────────────
+    if hum >= 75:
+        h_tag = f"très humide ({hum:.0f}%)"
+    elif hum >= 60:
+        h_tag = f"humide ({hum:.0f}%)"
+    elif hum >= 48:
+        h_tag = f"humidité modérée ({hum:.0f}%)"
+    else:
+        h_tag = f"air sec ({hum:.0f}%)"
+
+    # ── Vibrations ────────────────────────────────────────────────────
+    if vib >= 2.0:
+        v_tag = f"vibrations intenses ({vib:.2f} m/s²)"
+    elif vib >= 1.2:
+        v_tag = f"vibrations modérées ({vib:.2f} m/s²)"
+    elif vib >= 0.6:
+        v_tag = f"vibrations faibles ({vib:.2f} m/s²)"
+    else:
+        v_tag = f"quasi immobile ({vib:.2f} m/s²)"
+
+    # ── Trafic réseau ─────────────────────────────────────────────────
+    if net >= 420:
+        n_tag = f"trafic dense ({net:.0f} kbps)"
+    elif net >= 200:
+        n_tag = f"trafic modéré ({net:.0f} kbps)"
+    elif net >= 100:
+        n_tag = f"trafic faible ({net:.0f} kbps)"
+    else:
+        n_tag = f"trafic très faible ({net:.0f} kbps)"
+
+    tags = f"{t_tag}  ·  {h_tag}  ·  {v_tag}  ·  {n_tag}"
+
+    # ── Profil dominant ───────────────────────────────────────────────
+    if temp >= 30 and hum >= 70:
         profil = "Zone chaude & humide — type forêt / zone équatoriale"
     elif vib >= 2.0 and net >= 420:
         profil = "Zone industrielle / urbaine active"
     elif temp <= 24 and net >= 420:
         profil = "Centre de données ou zone urbaine froide"
+    elif vib >= 2.0 and net >= 200:
+        profil = "Site industriel — machines actives, bon réseau"
     elif vib >= 1.5:
         profil = "Site industriel — machines en fonctionnement"
+    elif temp >= 26 and hum >= 48 and 150 <= net < 420:
+        profil = "Zone suburbaine équilibrée — conditions modérées"
+    elif temp <= 24 and hum < 48:
+        profil = "Zone aride / semi-désertique"
     else:
         profil = "Zone suburbaine équilibrée — conditions modérées"
-    return profil, ", ".join(tags)
+
+    return profil, tags
 
 
 def _color_tag(line):
@@ -178,26 +240,58 @@ class Dashboard(tk.Tk):
 
         self._slbl(side, "  EXÉCUTER", top=14)
         self.btns = {}
-        for key, color, icon, lbl, cmd in [
-            ("gen",    GREEN2,  "⬡", "Générer les données",    self._run_gen),
-            ("class",  CYAN,    "▶", "K-Means Classique",      self._run_classic),
-            ("mr",     ACCENT2, "⚡", "MapReduce Chunk",        self._run_mr),
-            ("dist",   ACCENT,  "◉", "Multi-Serveurs (5 srv)", self._run_dist),
-            ("stream", YELLOW,  "≋", "Streaming continu",      self._run_stream),
-            ("bench",  PINK,    "≡", "Benchmark complet",      self._run_bench),
-            ("simul",  ORANGE,  "⧗", "Simulation Timeout",     self._run_simulation),
-        ]:
-            frm = tk.Frame(side, bg=SIDEBAR)
-            frm.pack(fill=tk.X, padx=12, pady=2)
-            tk.Frame(frm, bg=color, width=3).pack(side=tk.LEFT, fill=tk.Y)
-            b = tk.Button(frm, text=f"  {icon}  {lbl}", font=F_BTN,
-                          bg=BTN, fg=TEXT, activebackground=BTN_HVR,
-                          activeforeground=TEXT, bd=0, pady=8, anchor="w",
-                          cursor="hand2", relief="flat", command=cmd)
-            b.pack(side=tk.LEFT, fill=tk.X, expand=True)
-            b.bind("<Enter>", lambda e, w=b, c=color: w.configure(bg=BTN_HVR, fg=c))
-            b.bind("<Leave>", lambda e, w=b: w.configure(bg=BTN, fg=TEXT))
-            self.btns[key] = b
+
+        # (key, color, icon, label, subtitle, cmd)
+        btn_groups = [
+            ("DONNÉES", [
+                ("gen",    GREEN2,  "⬡", "Générer les données",
+                 "CSV IoT — 5 serveurs régionaux", self._run_gen),
+            ]),
+            ("ALGORITHMES", [
+                ("class",  CYAN,    "▶", "K-Means Classique",
+                 "Séquentiel — 1 CPU — 1 500 pts", self._run_classic),
+                ("mr",     ACCENT2, "⚡", "MapReduce — Grande échelle",
+                 "1 machine · fichier 50 000 pts",  self._run_mr),
+                ("dist",   ACCENT,  "◉", "MapReduce — Distribué",
+                 "5 serveurs · données déjà locales", self._run_dist),
+                ("stream", YELLOW,  "≋", "Streaming — Temps réel",
+                 "Vagues incrémentales · warm-start", self._run_stream),
+            ]),
+            ("ANALYSE", [
+                ("bench",  PINK,    "≡", "Benchmark complet",
+                 "Classic vs MR — plusieurs tailles", self._run_bench),
+                ("simul",  ORANGE,  "⧗", "Simulation IoT Scale",
+                 "10k → 1M pts · réseau 1 Mbps",   self._run_simulation),
+            ]),
+        ]
+
+        for group_lbl, items in btn_groups:
+            tk.Label(side, text=f"  {group_lbl}", font=("Segoe UI", 7, "bold"),
+                     bg=SIDEBAR, fg=MUTED).pack(anchor="w", padx=14, pady=(8, 1))
+            for key, color, icon, lbl, sub, cmd in items:
+                frm = tk.Frame(side, bg=SIDEBAR)
+                frm.pack(fill=tk.X, padx=12, pady=2)
+                tk.Frame(frm, bg=color, width=3).pack(side=tk.LEFT, fill=tk.Y)
+                inner = tk.Frame(frm, bg=BTN)
+                inner.pack(side=tk.LEFT, fill=tk.X, expand=True)
+                b = tk.Button(inner, text=f"  {icon}  {lbl}", font=F_BTN,
+                              bg=BTN, fg=TEXT, activebackground=BTN_HVR,
+                              activeforeground=TEXT, bd=0, pady=6, anchor="w",
+                              cursor="hand2", relief="flat", command=cmd)
+                b.pack(fill=tk.X)
+                sub_lbl = tk.Label(inner, text=f"      {sub}", font=("Segoe UI", 7),
+                                   bg=BTN, fg=MUTED, anchor="w", padx=0, pady=3)
+                sub_lbl.pack(fill=tk.X)
+                for w in (inner, b, sub_lbl):
+                    w.bind("<Enter>", lambda e, b_=b, s_=sub_lbl, f_=inner, c=color:
+                           (b_.configure(bg=BTN_HVR, fg=c),
+                            s_.configure(bg=BTN_HVR, fg=c),
+                            f_.configure(bg=BTN_HVR)))
+                    w.bind("<Leave>", lambda e, b_=b, s_=sub_lbl, f_=inner:
+                           (b_.configure(bg=BTN, fg=TEXT),
+                            s_.configure(bg=BTN, fg=MUTED),
+                            f_.configure(bg=BTN)))
+                self.btns[key] = b
 
         self._slbl(side, "  RÉSULTATS", top=14)
         self.canvas_chart = tk.Canvas(side, bg=CARD, height=120,
@@ -315,13 +409,14 @@ class Dashboard(tk.Tk):
         tk.Label(ctrl, text="  Fichier :", font=F_SMALL, bg=CARD, fg=MUTED
                  ).pack(side=tk.LEFT, padx=(10, 4))
 
-        self.var_file = tk.StringVar(value=DATA_FILES[5][0])
-        file_menu = ttk.Combobox(ctrl, textvariable=self.var_file,
-                                 values=[f[0] for f in DATA_FILES],
-                                 state="readonly", width=22,
-                                 font=("Courier New", 9))
-        file_menu.pack(side=tk.LEFT, pady=10)
-        file_menu.bind("<<ComboboxSelected>>", lambda e: self._load_csv())
+        self.var_file = tk.StringVar(value="all_sensors.csv")
+        self.file_menu = ttk.Combobox(ctrl, textvariable=self.var_file,
+                                      values=[f[0] for f in _get_data_files()],
+                                      state="readonly", width=24,
+                                      font=("Courier New", 9))
+        self.file_menu.pack(side=tk.LEFT, pady=10)
+        self.file_menu.bind("<<ComboboxSelected>>", lambda e: self._load_csv())
+        self.file_menu.bind("<ButtonPress>", lambda e: self._refresh_file_list())
 
         tk.Button(ctrl, text="  ↺  Charger", font=F_SMALL,
                   bg=BTN, fg=CYAN, bd=0, padx=10, pady=5,
@@ -447,11 +542,12 @@ class Dashboard(tk.Tk):
         nav.pack(side=tk.RIGHT, padx=8)
         self.res_btns = {}
         for key, lbl, color in [
-            ("classic",    "Classique",  CYAN),
-            ("mapreduce",  "MapReduce",  ACCENT2),
-            ("streaming",  "Streaming",  YELLOW),
-            ("benchmark",  "Benchmark",  PINK),
-            ("simulation", "Simulation", ORANGE),
+            ("classic",     "Classique",   CYAN),
+            ("mapreduce",   "MR Chunk",    ACCENT2),
+            ("distributed", "MR Distribué",ACCENT),
+            ("streaming",   "Streaming",   YELLOW),
+            ("benchmark",   "Benchmark",   PINK),
+            ("simulation",  "Simulation",  ORANGE),
         ]:
             b = tk.Button(nav, text=lbl, font=("Segoe UI", 8),
                           bg=BTN, fg=MUTED, bd=0, padx=10, pady=5,
@@ -513,6 +609,15 @@ class Dashboard(tk.Tk):
         return var
 
     # ── Données browser ───────────────────────────────────────────────
+    def _refresh_file_list(self):
+        """Relit le dossier data/ pour inclure les CSV de simulation générés."""
+        files = _get_data_files()
+        names = [f[0] for f in files]
+        cur   = self.var_file.get()
+        self.file_menu.configure(values=names)
+        if cur not in names:
+            self.var_file.set(names[0] if names else "")
+
     def _load_csv(self):
         fname = self.var_file.get()
         path  = os.path.join(PROJECT_DIR, "data", fname)
@@ -682,7 +787,6 @@ class Dashboard(tk.Tk):
             ("  Problème  ", "cyan"), ("Regrouper 1 500 capteurs répartis sur 5 serveurs\n", "white"),
             ("             ", "white"), ("régionaux en K clusters homogènes.\n\n", "white"),
             ("  Features   ", "cyan"), ("température · humidité · vibration · réseau\n\n", "white"),
-            ("  Algos      ", "cyan"), ("Classique · MapReduce · Streaming · Benchmark\n\n", "white"),
         ]:
             self._write(txt, tag)
         self._write("  → Cliquez sur ", "muted")
@@ -697,7 +801,8 @@ class Dashboard(tk.Tk):
         self.term.configure(state=tk.DISABLED)
 
     def _writeln(self, line):
-        self._write(line, _color_tag(line))
+        clean = _ANSI_RE.sub('', line)
+        self._write(clean, _color_tag(clean))
 
     def _clear(self):
         self.term.configure(state=tk.NORMAL)
@@ -717,12 +822,14 @@ class Dashboard(tk.Tk):
 
     # ── Résultats ─────────────────────────────────────────────────────
     def _show_result_file(self, key):
+        """Lit le JSON sauvegardé et affiche les résultats."""
         paths = {
-            "classic":    "results/classic_result.json",
-            "mapreduce":  "results/mapreduce_result.json",
-            "streaming":  "results/streaming_result.json",
-            "benchmark":  "results/benchmark.json",
-            "simulation": "results/simulation_result.json",
+            "classic":     "results/classic_result.json",
+            "mapreduce":   "results/mapreduce_result.json",
+            "distributed": "results/distributed_result.json",
+            "streaming":   "results/streaming_result.json",
+            "benchmark":   "results/benchmark.json",
+            "simulation":  "results/simulation_result.json",
         }
         path = os.path.join(PROJECT_DIR, paths.get(key, ""))
         if not os.path.exists(path):
@@ -743,9 +850,48 @@ class Dashboard(tk.Tk):
             self._render_benchmark(data)
         elif key == "simulation" and isinstance(data, dict) and "results" in data:
             self._render_simulation(data)
+        elif key == "streaming" and isinstance(data, dict) and "history" in data:
+            self._render_streaming(data)
         else:
             self._render_result(data, key)
         self.nb.select(2)
+
+    def _display_result(self, key):
+        self._show_result_file(key)
+
+    # Narrative banners per algorithm mode
+    _ALGO_BANNER = {
+        "mapreduce": (
+            "MAPREDUCE — GRANDE ÉCHELLE (1 machine)",
+            ACCENT2,
+            [
+                "  Paradigme  : fichier unique découpé en chunks parallèles",
+                "  Avantage   : exploite TOUS les cœurs CPU d'une même machine",
+                "  Comparé au classique : MAP local → COMBINE → REDUCE final",
+                "  Cas d'usage: gros fichier CSV centralisé (data lake, HDFS local)",
+            ],
+        ),
+        "distributed": (
+            "MAPREDUCE — DISTRIBUÉ (5 serveurs régionaux)",
+            ACCENT,
+            [
+                "  Paradigme  : données DÉJÀ sur leurs serveurs — aucun transfert !",
+                "  Avantage   : chaque serveur traite ses propres capteurs localement",
+                "  Réseau     : seules les sommes partielles (5 vecteurs) circulent",
+                "  Cas d'usage: réseau IoT distribué géographiquement (nord/centre/…)",
+            ],
+        ),
+        "classic": (
+            "K-MEANS CLASSIQUE (séquentiel)",
+            CYAN,
+            [
+                "  Paradigme  : 1 CPU traite tous les points séquentiellement",
+                "  Limite     : doit charger TOUTES les données en RAM",
+                "  Réseau IoT : centralise les données brutes (coût de transfert élevé)",
+                "  Cas d'usage: données déjà locales, petits volumes (< 10 000 pts)",
+            ],
+        ),
+    }
 
     def _render_result(self, data, key):
         algo      = data.get("algorithm", key)
@@ -758,11 +904,26 @@ class Dashboard(tk.Tk):
         cc        = {str(k): v for k, v in raw_c.items()}
         total     = sum(cc.values()) or n_pts
 
-        self._rwrite(f"\n  ╔{'═'*62}╗\n", "muted")
-        self._rwrite(f"  ║  ", "muted")
-        self._rwrite(f"RÉSULTATS — {algo.upper():<51}", "h1")
-        self._rwrite(f"║\n", "muted")
-        self._rwrite(f"  ╚{'═'*62}╝\n\n", "muted")
+        banner = self._ALGO_BANNER.get(key)
+        if banner:
+            title, color, lines = banner
+            self._rwrite(f"\n  ╔{'═'*62}╗\n", "muted")
+            self._rwrite(f"  ║  ", "muted")
+            self._rwrite(f"{title:<62}", "h1")
+            self._rwrite(f"║\n", "muted")
+            self._rwrite(f"  ╠{'═'*62}╣\n", "muted")
+            for line in lines:
+                padded = f"{line:<64}"
+                self._rwrite(f"  ║", "muted")
+                self._rwrite(f"{padded}", "muted")
+                self._rwrite(f"║\n", "muted")
+            self._rwrite(f"  ╚{'═'*62}╝\n\n", "muted")
+        else:
+            self._rwrite(f"\n  ╔{'═'*62}╗\n", "muted")
+            self._rwrite(f"  ║  ", "muted")
+            self._rwrite(f"RÉSULTATS — {algo.upper():<51}", "h1")
+            self._rwrite(f"║\n", "muted")
+            self._rwrite(f"  ╚{'═'*62}╝\n\n", "muted")
 
         self._rwrite("  Métriques globales\n", "h2")
         self._rwrite("  " + "─"*48 + "\n", "muted")
@@ -796,7 +957,8 @@ class Dashboard(tk.Tk):
             profil, tags = _interpret_cluster(centroid)
             self._rwrite(f"\n  Cluster {i}", "label")
             self._rwrite(f"  →  {profil}\n", tags_list[i % 5])
-            self._rwrite(f"           {tags}\n", "muted")
+            for part in tags.split("  ·  "):
+                self._rwrite(f"           • {part.strip()}\n", "muted")
         self._rwrite("\n  " + "─"*62 + "\n\n", "muted")
 
         if len(centroids) == 3:
@@ -817,6 +979,102 @@ class Dashboard(tk.Tk):
         self._draw_chart(cc, algo, str(duration))
         self.chart_info.configure(
             text=f"{algo}  ·  {iters} itér.  ·  {duration}s  ·  {total} pts")
+
+    def _render_streaming(self, data):
+        algo             = data.get("algorithm", "kmeans_streaming_mapreduce")
+        k                = data.get("k", 3)
+        n_waves          = data.get("n_waves", 0)
+        n_servers        = data.get("n_servers", 5)
+        sensors_per_wave = data.get("sensors_per_wave_per_server", 0)
+        history          = data.get("history", [])
+        final_centroids  = data.get("final_centroids", [])
+        final_counts     = data.get("final_cluster_counts", {})
+        cc               = {str(i): v for i, v in final_counts.items()}
+        total            = sum(cc.values())
+        total_duration   = round(sum(h.get("duration_sec", 0) for h in history), 4)
+
+        stream_lines = [
+            "  Paradigme  : données arrivent en flux continu par vagues",
+            "  Avantage   : warm-start — centroïdes réutilisés vague après vague",
+            "  Clé        : pas de retraitement complet, dérive décroissante",
+            "  Cas d'usage: capteurs temps-réel, alertes IoT, monitoring continu",
+        ]
+        self._rwrite(f"\n  ╔{'═'*62}╗\n", "muted")
+        self._rwrite(f"  ║  ", "muted")
+        self._rwrite(f"{'STREAMING — TEMPS RÉEL (warm-start incrémental)':<62}", "h1")
+        self._rwrite(f"║\n", "muted")
+        self._rwrite(f"  ╠{'═'*62}╣\n", "muted")
+        for line in stream_lines:
+            padded = f"{line:<64}"
+            self._rwrite(f"  ║", "muted")
+            self._rwrite(f"{padded}", "muted")
+            self._rwrite(f"║\n", "muted")
+        self._rwrite(f"  ╚{'═'*62}╝\n\n", "muted")
+
+        self._rwrite("  Métriques globales\n", "h2")
+        self._rwrite("  " + "─"*48 + "\n", "muted")
+        for lbl, val in [
+            ("Points traités",       f"{total} capteurs"),
+            ("Vagues",               str(n_waves)),
+            ("Capteurs/vague/srv",   str(sensors_per_wave)),
+            ("Serveurs",             str(n_servers)),
+            ("Durée totale",         f"{total_duration}s"),
+        ]:
+            self._rwrite(f"  {lbl:<22}", "muted")
+            self._rwrite(f"{val}\n", "val")
+        self._rwrite("\n", "white")
+
+        self._rwrite("  Historique des vagues\n", "h2")
+        self._rwrite("  " + "─"*66 + "\n", "muted")
+        hdr = f"  {'Vague':>5}  {'Total':>8}" + \
+              "".join(f"  {'C'+str(i):>8}" for i in range(k)) + \
+              f"  {'Durée':>8}\n"
+        self._rwrite(hdr, "label")
+        self._rwrite("  " + "─"*66 + "\n", "muted")
+        for h in history:
+            wcc = h.get("cluster_counts", {})
+            counts_str = "".join(f"  {wcc.get(str(i), 0):>8}" for i in range(k))
+            self._rwrite(
+                f"  {h['wave']:>5}  {h['total_points']:>8}{counts_str}"
+                f"  {h['duration_sec']:>7.3f}s\n", "white")
+        self._rwrite("  " + "─"*66 + "\n\n", "muted")
+
+        self._rwrite("  Centroïdes finaux\n", "h2")
+        self._rwrite("  " + "─"*62 + "\n", "muted")
+        self._rwrite(f"  {'Cluster':<10}{'Temp°C':>9}{'Hum%':>8}"
+                     f"{'Vibr':>9}{'Réseau':>10}{'Points':>9}\n", "label")
+        self._rwrite("  " + "─"*62 + "\n", "muted")
+        for i, centroid in enumerate(final_centroids):
+            cnt = cc.get(str(i), 0)
+            pct = round(cnt / total * 100, 1) if total else 0
+            t, h, v, n = [round(x, 2) for x in centroid]
+            self._rwrite(f"  Cluster {i:<4}", "label")
+            self._rwrite(f"{t:>8.2f}{h:>8.2f}{v:>9.3f}{n:>10.2f}", "val")
+            self._rwrite(f"  {cnt:>5} ({pct}%)\n", "muted")
+        self._rwrite("  " + "─"*62 + "\n\n", "muted")
+
+        self._rwrite("  Interprétation automatique des clusters\n", "h2")
+        self._rwrite("  " + "─"*62 + "\n", "muted")
+        tags_list = ["h1", "val", "green", "yellow", "pink"]
+        for i, centroid in enumerate(final_centroids):
+            profil, tags = _interpret_cluster(centroid)
+            self._rwrite(f"\n  Cluster {i}", "label")
+            self._rwrite(f"  →  {profil}\n", tags_list[i % 5])
+            for part in tags.split("  ·  "):
+                self._rwrite(f"           • {part.strip()}\n", "muted")
+        self._rwrite("\n  " + "─"*62 + "\n\n", "muted")
+
+        self._rwrite("  Stabilisation — dérive des centroïdes\n", "h2")
+        self._rwrite("  " + "─"*62 + "\n", "muted")
+        for h in history:
+            drifts = h.get("centroid_drifts", [])
+            ds = "   ".join(f"C{i}={d:.4f}" for i, d in enumerate(drifts))
+            self._rwrite(f"  Vague {h['wave']:>2}  {ds}\n", "muted")
+        self._rwrite("\n", "white")
+
+        self._draw_chart(cc, algo, str(total_duration))
+        self.chart_info.configure(
+            text=f"Streaming  ·  {n_waves} vagues  ·  {total} pts")
 
     def _render_benchmark(self, data):
         self._rwrite(f"\n  ╔{'═'*62}╗\n", "muted")
@@ -846,136 +1104,291 @@ class Dashboard(tk.Tk):
         self._rwrite("  " + "─"*62 + "\n\n", "muted")
         self._rwrite("  Interprétation\n", "h2")
         self._rwrite("  " + "─"*62 + "\n\n", "muted")
-        self._rwrite("  Petit dataset (1 500 pts)  ", "white")
-        self._rwrite("overhead de création des processus\n", "yellow")
-        self._rwrite("  → MapReduce légèrement plus lent qu'en séquentiel.\n\n", "muted")
-        self._rwrite("  Grand dataset (50 000 pts)  ", "white")
-        self._rwrite("MapReduce ~1.8× plus rapide\n", "green")
-        self._rwrite("  → Traitement parallélisé sur plusieurs workers CPU.\n\n", "muted")
+        # Interprétation calculée depuis les données réelles
+        for r in data:
+            n_pts = r.get("n_points", 0)
+            ct    = r.get("classic_time")
+            mt    = r.get("mr_time")
+            to_c  = r.get("classic_timeout", False)
+            to_m  = r.get("mr_timeout", False)
+            if to_c or to_m or ct is None or mt is None:
+                continue
+            try:
+                ratio = float(str(ct)) / float(str(mt))
+            except Exception:
+                continue
+            if ratio > 1.05:
+                verdict = f"MapReduce {ratio:.2f}× plus rapide"
+                v_tag   = "green"
+            elif ratio < 0.95:
+                verdict = f"Overhead MapReduce ×{1/ratio:.2f} (démarrage processus)"
+                v_tag   = "yellow"
+            else:
+                verdict = "Performances équivalentes"
+                v_tag   = "val"
+            self._rwrite(f"  {n_pts:,} capteurs  ", "white")
+            self._rwrite(f"{verdict}\n", v_tag)
+        self._rwrite("\n", "white")
         self._rwrite("  En production réelle (données sur réseau), le gain\n"
                      "  est encore plus important car les workers tournent\n"
                      "  localement sur chaque serveur régional.\n\n", "muted")
 
     def _render_simulation(self, data):
-        timeout_s  = data.get("timeout_s", 12)
-        k          = data.get("k", 3)
-        n_servers  = data.get("n_servers", 5)
-        cpu_count  = data.get("cpu_count", "?")
-        results    = data.get("results", [])
+        k            = data.get("k", 3)
+        n_servers    = data.get("n_servers", 5)
+        cpu_count    = data.get("cpu_count", "?")
+        results      = data.get("results", [])
+        classic_demo = data.get("classic_demo")
+        projections  = data.get("projections", [])
 
         self._rwrite(f"\n  ╔{'═'*62}╗\n", "muted")
         self._rwrite("  ║  ", "muted")
-        self._rwrite(f"SIMULATION — CLASSIQUE (TIMEOUT) vs MAPREDUCE DISTRIBUÉ  ", "h1")
+        self._rwrite(f"SIMULATION — SCÉNARIO COMPLET IoT DISTRIBUÉ{' '*19}", "h1")
         self._rwrite("║\n", "muted")
         self._rwrite(f"  ╚{'═'*62}╝\n\n", "muted")
 
-        # ── Paramètres ────────────────────────────────────────────────
-        self._rwrite("  Paramètres de la simulation\n", "h2")
-        self._rwrite("  " + "─"*48 + "\n", "muted")
-        for lbl, val in [
-            ("Machine",          f"{cpu_count} CPUs logiques"),
-            ("Timeout classique", f"{timeout_s}s  — au-delà l'algo est abandonné"),
-            ("Clusters K",        str(k)),
-            ("Serveurs régionaux", str(n_servers)),
-            ("Features",          "temp · humidité · vibration · trafic réseau"),
-        ]:
-            self._rwrite(f"  {lbl:<22}", "muted")
-            self._rwrite(f"{val}\n", "val")
-        self._rwrite("\n", "white")
+        self._rwrite(f"  Machine : {cpu_count} CPUs  ·  "
+                     f"Réseau IoT : 1 Mbps  ·  "
+                     f"Serveurs : {n_servers}  ·  K={k}\n\n", "muted")
 
-        # ── Tableau comparatif ────────────────────────────────────────
-        self._rwrite("  Résultats par palier de données\n", "h2")
-        self._rwrite("  " + "─"*66 + "\n", "muted")
-        self._rwrite(
-            f"  {'Capteurs':>12}  {'Classique':>18}  {'MapReduce':>12}  {'Verdict'}\n",
-            "label")
-        self._rwrite("  " + "─"*66 + "\n", "muted")
+        # ── PHASE 1 — Le classique fonctionne ────────────────────────
+        self._rwrite("  ┌─────────────────────────────────────────────────────┐\n", "muted")
+        self._rwrite("  │  ", "muted")
+        self._rwrite("PHASE 1  —  K-Means Classique  ·  Données réelles IoT", "h1")
+        self._rwrite("  │\n", "muted")
+        self._rwrite("  └─────────────────────────────────────────────────────┘\n\n", "muted")
+
+        if classic_demo:
+            n_demo    = classic_demo.get("n_points", 0)
+            dur_demo  = classic_demo.get("duration_sec", 0)
+            it_demo   = classic_demo.get("iterations", "?")
+            ctrs_demo = classic_demo.get("centroids", [])
+            cc_demo   = {str(i): v for i, v in classic_demo.get("cluster_counts", {}).items()}
+            total_d   = sum(cc_demo.values()) or n_demo
+
+            self._rwrite(f"  {n_demo:,} capteurs  ·  {it_demo} itérations  ·  "
+                         f"{dur_demo*1000:.0f} ms\n\n", "val")
+            self._rwrite(f"  {'Cluster':<10}{'Temp°C':>9}{'Hum%':>8}"
+                         f"{'Vibr':>9}{'Réseau':>10}{'Points':>9}\n", "label")
+            self._rwrite("  " + "─"*54 + "\n", "muted")
+            tags_list = ["h1", "val", "green", "yellow", "pink"]
+            for i, c in enumerate(ctrs_demo):
+                cnt = cc_demo.get(str(i), 0)
+                pct = round(cnt / total_d * 100, 1) if total_d else 0
+                t, h, v, n = [round(x, 2) for x in c]
+                self._rwrite(f"  Cluster {i:<4}", tags_list[i % 5])
+                self._rwrite(f"{t:>8.2f}{h:>8.2f}{v:>9.3f}{n:>10.2f}", "val")
+                self._rwrite(f"  {cnt:>5} ({pct}%)\n", "muted")
+            self._rwrite("  " + "─"*54 + "\n\n", "muted")
+            self._rwrite("  ✓ Rapide, précis, simple.  "
+                         "Sur un petit volume, le classique suffit.\n", "green")
+            self._rwrite("  → Que se passe-t-il quand le volume de données explose ?\n\n",
+                         "yellow")
+        else:
+            self._rwrite("  (Données réelles non disponibles — lancez d'abord\n", "muted")
+            self._rwrite("   ⬡ Générer les données puis ⧗ Simulation Timeout)\n\n", "muted")
+
+        # Note : différence avec K-Means Classique
+        self._rwrite("  Différence avec ▶ K-Means Classique :\n", "h2")
+        self._rwrite("  " + "─"*62 + "\n", "muted")
+        self._rwrite("  Phase 1 utilise les données RÉELLES (all_sensors.csv)\n", "muted")
+        self._rwrite("  → résultats identiques au bouton K-Means Classique\n\n", "val")
+        self._rwrite("  Phase 2 génère des données SYNTHÉTIQUES par paliers\n", "muted")
+        self._rwrite("  → centroïdes proches mais pas identiques (données ≠)\n", "muted")
+        self._rwrite("  → l'ordre des clusters peut varier entre deux runs\n", "muted")
+        self._rwrite("  → objectif : mesurer la scalabilité, pas reproduire\n", "muted")
+        self._rwrite("    exactement les clusters des données réelles\n\n", "muted")
+
+        # ── PHASE 2 — Montée en charge ────────────────────────────────
+        self._rwrite("  ┌─────────────────────────────────────────────────────┐\n", "muted")
+        self._rwrite("  │  ", "muted")
+        self._rwrite("PHASE 2  —  Montée en charge : le classique ralentit   ", "h1")
+        self._rwrite("│\n", "muted")
+        self._rwrite("  └─────────────────────────────────────────────────────┘\n\n", "muted")
+
+        self._rwrite("  Temps TOTAL = calcul + transfert réseau IoT (1 Mbps)\n\n", "muted")
+        self._rwrite(f"  {'Capteurs':>12}  {'Classique (total)':>18}  {'MapReduce':>13}  Verdict\n",
+                     "label")
+        self._rwrite("  " + "─"*68 + "\n", "muted")
 
         for r in results:
-            n        = r.get("n", 0)
-            mr_s     = r.get("mr_s", 0)
-            classic_s= r.get("classic_s", timeout_s)
-            timed_out= r.get("timed_out", False)
-
-            mr_txt = f"{mr_s*1000:.0f} ms" if mr_s < 1 else f"{mr_s:.2f}s"
+            n         = r.get("n", 0)
+            # Utilise les totaux si disponibles (nouveau format), sinon calcul pur
+            mr_s      = r.get("mr_total_s",      r.get("mr_s", 0))
+            classic_s = r.get("classic_total_s", r.get("classic_s", 0))
+            timed_out = r.get("timed_out", False)
+            mr_txt    = f"{mr_s*1000:.0f} ms" if mr_s < 1 else f"{mr_s:.2f}s"
 
             if timed_out:
-                cl_txt   = f">{timeout_s}s  TIMEOUT"
-                cl_tag   = "red"
-                speedup  = classic_s / mr_s if mr_s > 0 else 0
-                verdict  = f"MR seul peut terminer ({speedup:.1f}× plus rapide)"
-                vrd_tag  = "green"
+                cl_txt  = f"TIMEOUT ✗"
+                cl_tag  = "red"
+                speedup = classic_s / mr_s if mr_s > 0 else 0
+                verdict = f"MR {speedup:.1f}× plus rapide"
+                v_tag   = "green"
             else:
-                cl_txt   = f"{classic_s*1000:.0f} ms" if classic_s < 1 else f"{classic_s:.2f}s"
-                cl_tag   = "yellow"
+                cl_txt = f"{classic_s*1000:.0f} ms" if classic_s < 1 else f"{classic_s:.1f}s"
+                cl_tag = "yellow"
                 if classic_s > 0 and mr_s > 0:
                     ratio = classic_s / mr_s
                     if ratio > 1.05:
-                        verdict = f"MR {ratio:.1f}× plus rapide"
-                        vrd_tag = "green"
+                        verdict, v_tag = f"MR {ratio:.1f}× plus rapide", "green"
                     elif mr_s / classic_s > 1.05:
                         overhead = mr_s / classic_s
-                        verdict  = f"Overhead MR ×{overhead:.1f}  (normal à petite échelle)"
-                        vrd_tag  = "yellow"
+                        verdict  = f"Overhead ×{overhead:.1f} (Python local)"
+                        v_tag    = "yellow"
                     else:
-                        verdict, vrd_tag = "Performances équivalentes", "val"
+                        verdict, v_tag = "Équivalents", "val"
                 else:
-                    verdict, vrd_tag = "—", "muted"
+                    verdict, v_tag = "—", "muted"
 
             self._rwrite(f"  {n:>12,}  ", "white")
             self._rwrite(f"{cl_txt:>18}", cl_tag)
-            self._rwrite(f"  {mr_txt:>12}  ", "val")
-            self._rwrite(f"{verdict}\n", vrd_tag)
+            self._rwrite(f"  {mr_txt:>13}  ", "val")
+            self._rwrite(f"{verdict}\n", v_tag)
 
-        self._rwrite("  " + "─"*66 + "\n\n", "muted")
+        self._rwrite("  " + "─"*68 + "\n\n", "muted")
 
-        # ── Interprétation ────────────────────────────────────────────
-        self._rwrite("  Interprétation\n", "h2")
-        self._rwrite("  " + "─"*62 + "\n\n", "muted")
+        # ── PHASE 3 — Analyse honnête des résultats ──────────────────
+        self._rwrite("  ┌─────────────────────────────────────────────────────┐\n", "muted")
+        self._rwrite("  │  ", "muted")
+        self._rwrite("PHASE 3  —  Analyse des résultats                      ", "h1")
+        self._rwrite("│\n", "muted")
+        self._rwrite("  └─────────────────────────────────────────────────────┘\n\n", "muted")
 
-        timeouts = [r for r in results if r.get("timed_out")]
-        small    = [r for r in results if not r.get("timed_out") and
-                    r.get("mr_s", 0) > r.get("classic_s", 0)]
-        wins     = [r for r in results if not r.get("timed_out") and
-                    r.get("classic_s", 0) > r.get("mr_s", 0) * 1.05]
+        non_timeout = [r for r in results if not r.get("timed_out")]
+        timeouts    = [r for r in results if r.get("timed_out")]
 
-        if small:
-            n_ex = small[0]["n"]
-            self._rwrite(f"  Petite échelle ({n_ex:,} pts)  ", "white")
-            self._rwrite("overhead de démarrage des processus\n", "yellow")
-            self._rwrite("  → Le classique séquentiel est plus rapide quand les\n", "muted")
-            self._rwrite("    données tiennent facilement en mémoire locale.\n\n", "muted")
+        # Résumé ligne par ligne
+        if classic_demo:
+            n_d = classic_demo.get("n_points", 0)
+            d_s = classic_demo.get("duration_sec", 0)
+            self._rwrite(f"  {n_d:>7,} pts  ", "white")
+            self._rwrite(f"Classique OK en {d_s*1000:.0f} ms"
+                         f"  — données réelles, pas besoin de MR\n", "val")
 
-        if wins:
-            n_ex = wins[-1]["n"]
-            r_ex = wins[-1]
-            ratio = r_ex["classic_s"] / r_ex["mr_s"] if r_ex["mr_s"] > 0 else 0
-            self._rwrite(f"  Grande échelle ({n_ex:,} pts)  ", "white")
-            self._rwrite(f"MapReduce {ratio:.1f}× plus rapide\n", "green")
-            self._rwrite("  → Traitement parallélisé sur les " + str(n_servers) +
-                         " serveurs régionaux.\n\n", "muted")
+        for r in non_timeout:
+            n   = r["n"]
+            c_s = r.get("classic_total_s", r.get("classic_s", 0))
+            m_s = r.get("mr_total_s",      r.get("mr_s", 0))
+            tr  = r.get("classic_transfer_s", 0)
+            if c_s > 0 and m_s > 0:
+                ratio = c_s / m_s
+                if ratio > 1.05:
+                    detail = f" (dont {tr:.1f}s collecte réseau)" if tr > 0.1 else ""
+                    self._rwrite(f"  {n:>7,} pts  ", "white")
+                    self._rwrite(f"MR {ratio:.1f}× plus rapide{detail}\n", "green")
+                elif m_s / c_s > 1.05:
+                    self._rwrite(f"  {n:>7,} pts  ", "white")
+                    self._rwrite(f"Overhead MR ×{m_s/c_s:.1f}  — petite taille, calcul rapide\n",
+                                 "yellow")
+                else:
+                    self._rwrite(f"  {n:>7,} pts  Performances équivalentes\n", "val")
 
-        if timeouts:
-            n_ex = timeouts[0]["n"]
-            mr_ex = timeouts[0]["mr_s"]
-            self._rwrite(f"  Très grand dataset ({n_ex:,} pts)  ", "white")
-            self._rwrite(f"Classique KO — MapReduce OK en {mr_ex:.2f}s\n", "red")
-            self._rwrite(f"  → L'algo classique dépasse le timeout de {timeout_s}s et\n", "muted")
-            self._rwrite("    est abandonné. Le MapReduce distribué termine normalement\n", "muted")
-            self._rwrite("    car chaque serveur ne traite qu'une fraction des données.\n\n", "muted")
+        for r in timeouts:
+            n   = r["n"]
+            c_s = r.get("classic_total_s", r.get("classic_s", 0))
+            m_s = r.get("mr_total_s",      r.get("mr_s", 0))
+            if m_s > 0:
+                self._rwrite(f"  {n:>7,} pts  ", "white")
+                self._rwrite(f"Classique TIMEOUT  —  MR OK en {m_s:.1f}s ({c_s/m_s:.1f}× plus rapide)\n",
+                             "green")
 
-        self._rwrite("  En production IoT réelle, le gain est encore supérieur :\n", "muted")
-        self._rwrite("  chaque serveur régional traite ses capteurs LOCALEMENT\n", "muted")
-        self._rwrite("  et n'envoie que des sommes partielles au coordinateur.\n\n", "muted")
+        self._rwrite("\n", "white")
+
+        # ── Projections scénario IoT réel ────────────────────────────
+        if projections:
+            self._rwrite("  ┌─────────────────────────────────────────────────────┐\n", "muted")
+            self._rwrite("  │  ", "muted")
+            self._rwrite("PROJECTIONS — Scénario IoT réel  (calcul + réseau 1 Mbps)", "h1")
+            self._rwrite("│\n", "muted")
+            self._rwrite("  └─────────────────────────────────────────────────────┘\n\n", "muted")
+            self._rwrite("  Extrapolation O(n) + transfert données sur réseau IoT.\n", "muted")
+            self._rwrite("  Classique : envoie TOUTES les données brutes au nœud central.\n", "muted")
+            self._rwrite("  MapReduce : seules les sommes partielles transitent.\n\n", "muted")
+            self._rwrite(f"  {'Capteurs':>15}  {'Classique (total)':>18}  {'MapReduce':>14}"
+                         f"  {'Gain MR':>7}  RAM\n", "label")
+            self._rwrite("  " + "─"*72 + "\n", "muted")
+
+            def _ht(s):
+                if s >= 86400: return f"~{s/86400:.1f} j"
+                if s >= 3600:  return f"~{s/3600:.1f} h"
+                if s >= 60:    return f"~{s/60:.0f} min"
+                return f"~{s:.1f}s"
+
+            for p in projections:
+                n_p     = p.get("n", 0)
+                # Accepte ancien format (classic_projected_s) et nouveau (classic_total_s)
+                cls_s   = p.get("classic_total_s",    p.get("classic_projected_s", 0))
+                mr_s    = p.get("mr_total_s",         p.get("mr_projected_s", 0))
+                ram_gb  = p.get("ram_gb", 0)
+                gain    = cls_s / mr_s if mr_s > 0 else 0
+                ram_txt = (f"~{ram_gb/1000:.0f} TB" if ram_gb >= 1000
+                           else f"~{ram_gb:.0f} GB" if ram_gb >= 1
+                           else f"~{ram_gb*1000:.0f} MB")
+                cls_tag = "red"   if cls_s >= 3600 else "yellow"
+                mr_tag  = "green" if gain > 3      else "val"
+                self._rwrite(f"  {n_p:>15,}  ", "white")
+                self._rwrite(f"{_ht(cls_s):>18}", cls_tag)
+                self._rwrite(f"  {_ht(mr_s):>14}", mr_tag)
+                self._rwrite(f"  {gain:>5.1f}×  {ram_txt}\n", mr_tag)
+
+            self._rwrite("  " + "─"*72 + "\n\n", "muted")
+
+            # Message clé
+            last    = projections[-1]
+            cls_tr  = last.get("classic_transfer_s", 0)
+            cls_cmp = last.get("classic_compute_s",  last.get("classic_projected_s", 0))
+            cls_tot = last.get("classic_total_s",     last.get("classic_projected_s", 0))
+            mr_tot  = last.get("mr_total_s",          last.get("mr_projected_s", 0))
+            gain_last = cls_tot / mr_tot if mr_tot > 0 else 0
+            self._rwrite(f"  À {last['n']:,} capteurs IoT :\n", "label")
+            if cls_tr > 0:
+                self._rwrite(f"  Classique  : transfert {_ht(cls_tr)}"
+                             f" + calcul {_ht(cls_cmp)} = {_ht(cls_tot)}\n", "red")
+            else:
+                self._rwrite(f"  Classique  → {_ht(cls_tot)}\n", "red")
+            self._rwrite(f"  MapReduce  : calcul distribué = {_ht(mr_tot)}"
+                         f"  (données restent sur site)\n", "green")
+            self._rwrite(f"\n  Gain réel : ", "white")
+            self._rwrite(f"{gain_last:.0f}× plus rapide", "green")
+            self._rwrite(" — MapReduce termine pendant que\n", "white")
+            self._rwrite("  le classique collecte encore les données !\n\n", "muted")
+
+        # Note de contexte importante sur l'overhead local
+        mr_slower_count = sum(
+            1 for r in non_timeout
+            if r.get("mr_total_s", r.get("mr_s", 0)) > r.get("classic_total_s", r.get("classic_s", 0)) * 1.05
+        )
+        if mr_slower_count > 0:
+            self._rwrite("  Note  —  overhead Python multiprocessing\n", "h2")
+            self._rwrite("  " + "─"*62 + "\n", "muted")
+            self._rwrite("  Sur cette machine, le coût de démarrage des processus\n", "muted")
+            self._rwrite("  Python dépasse le gain de parallélisme pour les petits\n", "muted")
+            self._rwrite("  et moyens volumes. C'est le comportement attendu en local.\n\n",
+                         "muted")
+            self._rwrite("  En production IoT réelle :\n", "yellow")
+            self._rwrite(f"    • Chaque serveur régional a SES données localement\n", "muted")
+            self._rwrite(f"    • Pas de transfert de données brutes sur le réseau\n", "muted")
+            self._rwrite(f"    • Seules les sommes partielles ({n_servers} vecteurs) transitent\n",
+                         "muted")
+            self._rwrite(f"    → Le gain MapReduce serait alors bien supérieur\n\n", "green")
+
+        self._rwrite("  Architecture MapReduce IoT :\n", "h2")
+        self._rwrite("  " + "─"*62 + "\n", "muted")
+        for srv in range(1, n_servers + 1):
+            self._rwrite(f"  Serveur {srv}  →  MAP local ({n_servers} partitions)"
+                         f"  →  somme partielle\n", "muted")
+        self._rwrite(f"  Coordinateur  →  REDUCE (agrégation des {n_servers} partiels)"
+                     f"  →  centroïdes\n\n", "val")
         self._rwrite("  " + "─"*62 + "\n", "muted")
 
-        # Mise à jour du mini-graphique avec les temps MapReduce
-        mr_counts = {str(i): int(r["mr_s"] * 1000)
+        # Mini-graphique : temps MapReduce par palier
+        mr_counts = {str(i): int(r.get("mr_total_s", r.get("mr_s", 0)) * 1000)
                      for i, r in enumerate(results) if not r.get("timed_out")}
         if mr_counts:
-            self._draw_chart(mr_counts, "Simulation MR (ms)", "")
-            self.chart_info.configure(
-                text=f"Simulation  ·  timeout {timeout_s}s  ·  {len(results)} paliers")
+            self._draw_chart(mr_counts, "MR (ms)", "")
+        self.chart_info.configure(
+            text=f"Simulation  ·  réseau 1 Mbps  ·  {len(results)} paliers")
 
     # ── Spinner ───────────────────────────────────────────────────────
     def _start_spinner(self):
@@ -1044,11 +1457,12 @@ class Dashboard(tk.Tk):
             self._write("\n  ✓ ", "green")
             self._write("Terminé avec succès\n\n", "white")
             self.status_var.set("Terminé  ✓")
-            if result_key:
-                self._show_result_file(result_key)
-                # Recharge aussi les données si on vient de générer
-                if result_key is None and self._all_rows:
-                    self._load_csv()
+            self._refresh_file_list()   # met à jour la liste si des CSV de simulation ont été créés
+            if result_key == "data":
+                self._load_csv()
+                self.nb.select(1)
+            elif result_key:
+                self._display_result(result_key)
         else:
             self._write(f"\n  ✗ Erreur (code {rc})\n\n", "red")
             self.status_var.set(f"Erreur — code {rc}")
@@ -1057,7 +1471,8 @@ class Dashboard(tk.Tk):
     # ── Commandes ────────────────────────────────────────────────────
     def _run_gen(self):
         self._launch([sys.executable, "generate_data.py"],
-                     "Génération des données IoT simulées", active_key="gen")
+                     "Génération des données IoT simulées",
+                     result_key="data", active_key="gen")
 
     def _run_classic(self):
         k = self.var_k.get()
@@ -1069,8 +1484,8 @@ class Dashboard(tk.Tk):
     def _run_mr(self):
         k, it = self.var_k.get(), self.var_iter.get()
         self._launch([sys.executable, "kmeans_mapreduce.py",
-                      "data/all_sensors.csv", "--k", k, "--max-iter", it],
-                     f"MapReduce Chunk  (K={k}  ·  max_iter={it})",
+                      "data/large_sensors.csv", "--k", k, "--max-iter", it],
+                     f"MapReduce — Grande échelle  (K={k}  ·  50 000 capteurs)",
                      "mapreduce", "mr")
 
     def _run_dist(self):
@@ -1080,9 +1495,10 @@ class Dashboard(tk.Tk):
                       "data/server_nord.csv",   "data/server_centre.csv",
                       "data/server_sud.csv",    "data/server_ouest.csv",
                       "data/server_est.csv",
-                      "--k", k, "--max-iter", it],
-                     f"Multi-Serveurs  (K={k}  ·  5 serveurs régionaux)",
-                     "mapreduce", "dist")
+                      "--k", k, "--max-iter", it,
+                      "--output", "results/distributed_result.json"],
+                     f"MapReduce Distribué  (K={k}  ·  5 serveurs régionaux)",
+                     "distributed", "dist")
 
     def _run_stream(self):
         k, w = self.var_k.get(), self.var_waves.get()

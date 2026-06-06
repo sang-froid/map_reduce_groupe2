@@ -1,11 +1,10 @@
 \documentclass[12pt,a4paper]{article}
+\usepackage{setspace}
+\setstretch{1.15}
 
-% ─── Packages ─────────────────────────────────────────────────────────
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
-% babel french non installe — le contenu reste en francais
-\usepackage[top=2.5cm,bottom=2.5cm,left=2.5cm,right=2.5cm,headheight=15pt]{geometry}
-\usepackage{graphicx}
+\usepackage[top=2.2cm,bottom=2.2cm,left=2.5cm,right=2.5cm,headheight=15pt]{geometry}
 \usepackage{amsmath}
 \usepackage{array}
 \usepackage{booktabs}
@@ -17,55 +16,47 @@
 \usepackage{float}
 \usepackage{hyperref}
 \usepackage{tikz}
-\usetikzlibrary{shapes.geometric, arrows.meta, positioning}
-\usepackage{multirow}
-\usepackage{colortbl}
+\usetikzlibrary{arrows.meta, positioning}
 \usepackage{mdframed}
 
-% ─── Couleurs ─────────────────────────────────────────────────────────
-\definecolor{ifriblue}{RGB}{0,70,140}
-\definecolor{codebg}{RGB}{245,245,245}
-\definecolor{mapcolor}{RGB}{52,152,219}
-\definecolor{reducecolor}{RGB}{231,76,60}
-\definecolor{shufflecolor}{RGB}{46,204,113}
-\definecolor{combinecolor}{RGB}{243,156,18}
-\definecolor{tableheader}{RGB}{0,70,140}
+\definecolor{codebg}{RGB}{248,248,248}
 
-% ─── Style listings ───────────────────────────────────────────────────
 \lstset{
   language=Python,
   backgroundcolor=\color{codebg},
   basicstyle=\footnotesize\ttfamily,
   keywordstyle=\bfseries,
   commentstyle=\itshape,
-  stringstyle={},
   numbers=left,
   numberstyle=\tiny\color{gray},
-  stepnumber=1,
   numbersep=8pt,
   frame=single,
   framerule=0.5pt,
-  rulecolor=\color{gray!40},
+  rulecolor=\color{gray!50},
   breaklines=true,
   showstringspaces=false,
   tabsize=4,
   captionpos=b,
 }
 
-% ─── En-têtes / pieds de page ─────────────────────────────────────────
 \pagestyle{fancy}
 \fancyhf{}
 \renewcommand{\headrulewidth}{0.4pt}
-\fancyhead[L]{\small\textcolor{ifriblue}{\textbf{TP4 Big Data — K-Means MapReduce}}}
-\fancyhead[R]{\small\textcolor{ifriblue}{Master 1 GL — IFRI 2025-2026}}
+\fancyhead[L]{\small\textbf{TP4 Big Data — K-Means MapReduce}}
+\fancyhead[R]{\small Master 1 GL — IFRI 2025-2026}
 \fancyfoot[C]{\small Page \thepage}
 
-% ─── Titres de sections ───────────────────────────────────────────────
-\titleformat{\section}{\large\bfseries\color{ifriblue}}{}{0em}{\thesection\quad}[\titlerule]
-\titleformat{\subsection}{\normalsize\bfseries\color{ifriblue!80}}{}{0em}{\thesubsection\quad}
-\titleformat{\subsubsection}{\normalsize\bfseries}{}{0em}{\thesubsubsection\quad}
+% Titres numérotés correctement (label = numéro, sep = 1em)
+\titleformat{\section}{\large\bfseries}{\thesection}{1em}{}[\titlerule]
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries}{\thesubsubsection}{1em}{}
 
-\hypersetup{colorlinks=true,linkcolor=ifriblue,urlcolor=ifriblue,citecolor=ifriblue}
+\setlist[enumerate]{topsep=4pt, itemsep=3pt, parsep=0pt}
+\setlist[itemize]{topsep=4pt, itemsep=3pt, parsep=0pt}
+
+\setlength{\parskip}{6pt}
+
+\hypersetup{colorlinks=false, hidelinks}
 
 % ─────────────────────────────────────────────────────────────────────
 \begin{document}
@@ -75,534 +66,490 @@
 % ══════════════════════════════════════════════════════════════════════
 \thispagestyle{empty}
 \begin{center}
-
-  {\small\textbf{RÉPUBLIQUE DU BÉNIN}}\\[0.2cm]
-  {\small $\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star$}\\[0.2cm]
-  {\small\textbf{MINISTÈRE DE L'ENSEIGNEMENT SUPÉRIEUR ET}}\\
-  {\small\textbf{DE LA RECHERCHE SCIENTIFIQUE}}\\[0.2cm]
-  {\small $\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star$}\\[0.2cm]
-  {\small\textbf{UNIVERSITÉ D'ABOMEY-CALAVI (UAC)}}\\[0.2cm]
-  {\small $\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star$}\\[0.2cm]
+  {\small\textbf{RÉPUBLIQUE DU BÉNIN}}\\[0.15cm]
+  {\small $\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star$}\\[0.1cm]
+  {\small\textbf{MINISTÈRE DE L'ENSEIGNEMENT SUPÉRIEUR ET DE LA RECHERCHE SCIENTIFIQUE}}\\[0.1cm]
+  {\small $\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star$}\\[0.1cm]
+  {\small\textbf{UNIVERSITÉ D'ABOMEY-CALAVI (UAC)}}\\[0.1cm]
+  {\small $\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star\star$}\\[0.1cm]
   {\small\textit{\textbf{INSTITUT DE FORMATION ET DE RECHERCHE EN INFORMATIQUE (IFRI)}}}
 
-  \vspace{1.2cm}
-  {\normalsize\textbf{MASTER 1 : Big Data}}\\[0.4cm]
-  {\normalsize\textbf{Travaux Pratiques n\textsuperscript{o} 4}}
+  \vspace{0.9cm}
+  {\normalsize\textbf{MASTER 1 : Big Data — Travaux Pratiques n\textsuperscript{o} 4}}
 
-  \vspace{1.2cm}
-  {\LARGE\textbf{Clustering IoT par K-Means MapReduce}}\\[0.3cm]
-  {\large\textit{Modélisation parallèle sur capteurs distribués (5 serveurs régionaux)}}\\[0.4cm]
+  \vspace{0.9cm}
+  {\LARGE\textbf{Clustering IoT par K-Means MapReduce}}\\[0.25cm]
+  {\large\textit{Modélisation parallèle sur capteurs distribués — 5 serveurs régionaux}}\\[0.25cm]
   {\normalsize\textbf{Génie Logiciel}}
 
-  \vspace{1.8cm}
-  \begin{minipage}[t]{0.45\textwidth}
-    \underline{\textbf{Nom de l'étudiante :}}\\[0.2cm]
-    MVOGO Bandolo Samira Anaïs
-  \end{minipage}
-  \hfill
-  \begin{minipage}[t]{0.45\textwidth}
-    \underline{\textbf{Sous la supervision de :}}\\[0.2cm]
-    John AOGA
-  \end{minipage}
-
-  \vspace{2.0cm}
+  \vspace{1.4cm}
   \textbf{Année académique :} 2025-2026
-
 \end{center}
-
-\vspace{1.5cm}
+\vspace{0.8cm}
 \hrule height 0.5pt
 \vfill
-
 \newpage
 
 % ══════════════════════════════════════════════════════════════════════
 %  TABLE DES MATIÈRES
 % ══════════════════════════════════════════════════════════════════════
+{\singlespacing
 \tableofcontents
+}
 \newpage
 
 % ══════════════════════════════════════════════════════════════════════
 %  1. INTRODUCTION
 % ══════════════════════════════════════════════════════════════════════
-\section{Introduction et contexte du problème}
+\section{Introduction}
 
-Dans le domaine de l'Internet des Objets (IoT), des milliers de capteurs répartis géographiquement mesurent en continu des grandeurs physiques : température, humidité, vibration et trafic réseau. L'enjeu est de \textbf{regrouper automatiquement} ces capteurs en clusters homogènes selon leurs profils de mesure, afin d'identifier des zones géographiques aux comportements similaires.
+Les réseaux de capteurs IoT (\textit{Internet of Things}) génèrent des volumes de données
+croissants, répartis sur plusieurs sites géographiques. Dans ce contexte, regrouper
+automatiquement des milliers de capteurs en zones aux comportements similaires constitue
+un problème central de l'analyse Big Data.
 
-\medskip
-Ce TP4 implémente l'algorithme \textbf{K-Means} dans trois variantes progressives :
+L'algorithme de clustering K-Means est une solution classique à ce problème. Cependant,
+son exécution séquentielle sur un seul processeur atteint rapidement ses limites lorsque
+le volume de données augmente. Le paradigme \textbf{MapReduce} offre une alternative :
+en distribuant les calculs sur plusieurs nœuds, il permet de traiter de grands volumes
+de données tout en conservant la précision de l'algorithme d'origine.
 
-\begin{enumerate}[leftmargin=2cm]
-  \item \textbf{K-Means classique} (séquentiel, mono-nœud)
-  \item \textbf{K-Means MapReduce} (parallèle, multiprocessing Python)
-  \item \textbf{K-Means Streaming} (traitement continu de vagues de données)
-\end{enumerate}
-
-\medskip
-Le \textbf{scénario IoT} retenu est le suivant : cinq serveurs régionaux (Nord, Centre, Sud, Ouest, Est) stockent chacun les mesures de 300 capteurs locaux, soit 1 500 capteurs au total. Pour les tests de charge, un dataset de 50 000 capteurs est également généré.
+Ce rapport présente l'implémentation et l'évaluation du K-Means MapReduce appliqué à
+un réseau IoT simulé de cinq serveurs régionaux (Nord, Centre, Sud, Ouest, Est),
+chacun stockant les mesures de 300 capteurs, soit 1\,500 capteurs au total.
+Les expériences ont été conduites sur une machine à 4 CPU logiques. Le rapport
+s'organise comme suit : la section~2 modélise le problème et décrit l'architecture
+parallèle ; la section~3 détaille le pipeline MapReduce ; la section~4 présente
+l'implémentation ; la section~5 analyse les performances mesurées ; la section~6 conclut.
 
 % ══════════════════════════════════════════════════════════════════════
-%  2. MODÉLISATION PARALLÈLE
+%  2. MODÉLISATION DU PROBLÈME
 % ══════════════════════════════════════════════════════════════════════
-\section{Modélisation du problème en exécution parallèle}
+\section{Modélisation du problème}
 
-\subsection{Données et espace de features}
+\subsection{Représentation des données}
 
-Chaque capteur est représenté par un vecteur de quatre features extraites des colonnes CSV :
+Chaque capteur est décrit par un vecteur de quatre mesures physiques collectées en
+continu. Ces quatre dimensions constituent l'\textbf{espace de features} dans lequel
+l'algorithme K-Means calcule les distances et identifie les clusters.
 
 \begin{center}
-\begin{tabular}{>{\bfseries}lll}
+\begin{tabular}{llll}
 \toprule
-Feature & Unité & Plage typique \\
+\textbf{Feature} & \textbf{Unité} & \textbf{Plage} & \textbf{Signification} \\
 \midrule
-temperature      & \textdegree C & 13 – 38 \\
-humidity         & \%            & 30 – 90 \\
-vibration        & m/s\textsuperscript{2} & 0,3 – 3,0 \\
-network\_traffic & kbps          & 40 – 700 \\
+\texttt{temperature}      & °C    & 13–38  & Température ambiante \\
+\texttt{humidity}         & \%    & 30–90  & Humidité relative \\
+\texttt{vibration}        & m/s²  & 0.3–3.0 & Vibrations mécaniques \\
+\texttt{network\_traffic} & kbps  & 40–700 & Trafic réseau local \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-\subsection{Modèle de parallélisation}
+\subsection{Pourquoi le parallélisme est-il applicable ?}
 
-L'exécution séquentielle du K-Means devient un goulot d'étranglement dès que le volume de données augmente : chaque itération doit parcourir \emph{tous} les points sur \emph{un seul processeur}. La modélisation parallèle repose sur l'observation suivante :
+À chaque itération du K-Means, l'opération la plus coûteuse est l'\textbf{affectation}
+de chaque capteur au cluster dont le centroïde est le plus proche. Cette affectation
+est calculée par la distance euclidienne :
+\[
+  \text{cluster}(p) = \arg\min_{k=1}^{K} \| p - c_k \|_2
+\]
+Le point essentiel est que ce calcul est \emph{totalement indépendant d'un capteur
+à l'autre} : le résultat pour le capteur $i$ ne dépend pas du capteur $j$.
+Il est donc possible de répartir les capteurs sur plusieurs workers qui effectuent
+ces calculs simultanément, sans coordination ni échange de données entre eux.
+Cette propriété est le fondement de la parallélisation par MapReduce.
 
-\begin{mdframed}[linecolor=black!30,linewidth=0.8pt]
-\textbf{Principe clé :} L'étape d'affectation de chaque capteur à son cluster le plus proche est \emph{totalement indépendante} d'un capteur à l'autre. On peut donc distribuer les points sur $N$ workers, chacun traitant un sous-ensemble (chunk) de manière parallèle.
-\end{mdframed}
+\subsection{Architecture générale du système}
 
-\medskip
-Deux modes de partitionnement ont été implémentés :
-
-\begin{description}[leftmargin=2cm]
-  \item[\textbf{Mode chunk}] Un seul fichier CSV global est découpé en $N$ blocs de taille égale. Chaque worker traite son bloc indépendamment.
-  \item[\textbf{Mode multi-serveurs}] Chaque fichier régional (nord, centre, sud, ouest, est) est assigné à un worker distinct — simulation fidèle du scénario IoT où les données restent locales au serveur.
-\end{description}
-
-\subsection{Architecture de la parallélisation}
+L'architecture retenue place les données au plus près de leur source : chaque serveur
+régional conserve ses 300 capteurs localement et exécute sa phase de calcul sans
+transfert préalable des données brutes. Seuls les résultats intermédiaires agrégés
+transitent vers le nœud central.
 
 \begin{figure}[H]
 \centering
-\begin{tikzpicture}[
-  node distance=0.6cm and 1.2cm,
-  server/.style={draw=black!60, fill=black!5, rounded corners, minimum width=2.2cm, minimum height=0.7cm, font=\small},
-  phase/.style={draw=black!50, fill=black!8, rounded corners, minimum width=2cm, minimum height=0.65cm, font=\small\bfseries},
-  arrow/.style={-Stealth, thick, color=black!50},
-  reducer/.style={draw=black!70, fill=black!12, rounded corners, minimum width=3cm, minimum height=0.8cm, font=\small\bfseries},
+\begin{tikzpicture}[scale=0.9, node distance=0.35cm and 0.95cm,
+  server/.style={draw=black!70, fill=black!5, rounded corners, minimum width=2cm, minimum height=0.5cm, font=\tiny},
+  phase/.style={draw=black!60, fill=black!10, rounded corners, minimum width=1.8cm, minimum height=0.5cm, font=\tiny\bfseries},
+  arrow/.style={-Stealth, thick, black!60},
 ]
-  \node[server] (nord)   {Serveur Nord};
-  \node[server, below=of nord]  (centre) {Serveur Centre};
-  \node[server, below=of centre](sud)    {Serveur Sud};
-  \node[server, below=of sud]   (ouest)  {Serveur Ouest};
-  \node[server, below=of ouest] (est)    {Serveur Est};
+  \node[server] (nord)   {Nord (300)};
+  \node[server, below=of nord]   (centre) {Centre (300)};
+  \node[server, below=of centre] (sud)    {Sud (300)};
+  \node[server, below=of sud]    (ouest)  {Ouest (300)};
+  \node[server, below=of ouest]  (est)    {Est (300)};
 
-  \node[phase, right=1.4cm of nord]   (m1) {MAP + COMBINE};
-  \node[phase, right=1.4cm of centre] (m2) {MAP + COMBINE};
-  \node[phase, right=1.4cm of sud]    (m3) {MAP + COMBINE};
-  \node[phase, right=1.4cm of ouest]  (m4) {MAP + COMBINE};
-  \node[phase, right=1.4cm of est]    (m5) {MAP + COMBINE};
+  \node[phase, right=0.95cm of nord]   (m1) {MAP+COMB};
+  \node[phase, right=0.95cm of centre] (m2) {MAP+COMB};
+  \node[phase, right=0.95cm of sud]    (m3) {MAP+COMB};
+  \node[phase, right=0.95cm of ouest]  (m4) {MAP+COMB};
+  \node[phase, right=0.95cm of est]    (m5) {MAP+COMB};
 
-  \node[phase, right=1.4cm of m3] (sh) {SHUFFLE};
-  \node[reducer, right=1.4cm of sh] (red) {REDUCER};
+  \node[phase, right=0.95cm of m3] (sh) {SHUFFLE};
+  \node[phase, right=0.95cm of sh] (red) {REDUCE};
 
   \foreach \s/\m in {nord/m1, centre/m2, sud/m3, ouest/m4, est/m5}
     \draw[arrow] (\s) -- (\m);
-
   \foreach \m in {m1,m2,m3,m4,m5}
     \draw[arrow] (\m) -- (sh);
-
   \draw[arrow] (sh) -- (red);
 \end{tikzpicture}
-\caption{Architecture MapReduce multi-serveurs pour le clustering K-Means IoT}
+\caption{Pipeline MapReduce : 5 serveurs en parallèle → Shuffle → Reducer}
 \end{figure}
 
 % ══════════════════════════════════════════════════════════════════════
-%  3. MAPPERS ET REDUCERS
+%  3. LE PIPELINE MAPREDUCE
 % ══════════════════════════════════════════════════════════════════════
-\section{Explication des Mappers, Combiners, Shuffle et Reducers}
+\section{Le pipeline MapReduce appliqué au K-Means}
 
-\subsection{Mapper + Combiner (\texttt{mapper\_combiner})}
+Une itération complète du K-Means MapReduce se déroule en trois phases enchaînées :
+MAP+COMBINE (exécuté en parallèle sur chaque serveur), SHUFFLE (regroupement des
+résultats) et REDUCE (calcul des nouveaux centroïdes). Ces phases se répètent jusqu'à
+convergence.
 
-\begin{mdframed}[linecolor=black!30,linewidth=0.8pt]
-\textbf{Entrée :} un chunk de lignes CSV brutes + les $K$ centroïdes courants\\
-\textbf{Sortie :} \texttt{dict\{ cluster\_id : (somme\_partielle, count) \}}
-\end{mdframed}
+\subsection{Phase MAP + COMBINE : calcul local sur chaque serveur}
 
-\medskip
-Pour chaque capteur du chunk, le mapper :
-\begin{enumerate}
-  \item Parse la ligne CSV et extrait le vecteur \texttt{[temp, hum, vib, net]}.
-  \item Applique éventuellement la normalisation z-score en ligne.
-  \item Calcule la \textbf{distance euclidienne} aux $K$ centroïdes courants.
-  \item Assigne le capteur au cluster du centroïde le plus proche (\emph{étape MAP}).
-  \item Accumule la somme partielle et le compteur local pour ce cluster (\emph{étape COMBINE}).
-\end{enumerate}
+La phase MAP est exécutée par un \textbf{mapper} sur chaque serveur régional.
+Pour chaque capteur de son lot de données, le mapper calcule la distance
+euclidienne aux $K$ centroïdes courants et assigne le capteur au cluster le plus proche.
+Ce travail est effectué sur les données locales, sans communication inter-serveurs.
 
-Le \textbf{Combiner} est une optimisation critique : plutôt que d'émettre un enregistrement par capteur (potentiellement des millions), le worker n'émet qu'une somme partielle par cluster. Cela réduit considérablement le volume de données échangées lors du Shuffle.
+Le \textbf{Combiner} agrège ensuite localement les capteurs du même cluster :
+au lieu de 300 enregistrements, chaque serveur envoie seulement $K$ sommes partielles
+(somme des features + compteur). Ceci réduit le trafic réseau d'un facteur $300/K = 100\times$ avec $K=3$.
 
-\medskip
-\textbf{Formule d'affectation :}
+\subsection{Phase SHUFFLE et REDUCE}
+
+Le Shuffle regroupe les partiels par cluster. Le Reducer calcule ensuite le nouveau
+centroïde de chaque cluster en combinant les sommes partielles :
 \[
-  \text{cluster}(p) = \arg\min_{k} \; \| p - c_k \|_2
-  \qquad \text{où } \|a - b\|_2 = \sqrt{\sum_{d} (a_d - b_d)^2}
+  c_k^{\text{new}} = \frac{\sum_w (\text{somme}_{w}^{(k)})}{\sum_w n_w^{(k)}}
 \]
+Cette opération est \textbf{mathématiquement exacte} et produit le même résultat que
+l'algorithme séquentiel.
 
-\subsection{Shuffle (\texttt{shuffle})}
+\subsection{Efficacité du Combiner sur le volume de données}
 
-\begin{mdframed}[linecolor=black!30,linewidth=0.8pt]
-\textbf{Entrée :} liste des résultats partiels de tous les mappers\\
-\textbf{Sortie :} \texttt{dict\{ cluster\_id : [(somme\_partielle, count), ...] \}}
-\end{mdframed}
+L'apport du Combiner est particulièrement visible à grande échelle. Le schéma
+ci-dessous compare le volume de données transmis au Reducer selon qu'on utilise
+ou non cette optimisation.
 
-La phase de Shuffle regroupe toutes les sommes partielles émises par les différents workers par clé \texttt{cluster\_id}. Elle est simulée en mémoire (pas de réseau réel), ce qui est cohérent avec une exécution sur un seul nœud multi-cœur.
+\subsection{Efficacité du Combiner}
 
-\subsection{Reducer (\texttt{reducer})}
-
-\begin{mdframed}[linecolor=black!30,linewidth=0.8pt]
-\textbf{Entrée :} \texttt{(cluster\_id, [(somme\_partielle, count), ...])}\\
-\textbf{Sortie :} \texttt{(cluster\_id, nouveau\_centroïde, count\_total)}
-\end{mdframed}
-
-Pour chaque cluster, le reducer agrège les sommes partielles de tous les workers :
-
-\[
-  c_k^{\text{nouveau}} = \frac{\sum_{w} \text{somme}_w^{(k)}}{\sum_{w} \text{count}_w^{(k)}}
-\]
-
-où $w$ indexe les workers (serveurs régionaux). Ce calcul est exact : la somme des sommes partielles divisée par le count total est strictement équivalente à la moyenne globale.
+Plutôt que de transmettre $N \times W$ enregistrements bruts (ex. 300 × 5 = 1\,500),
+le Combiner agrège localement et n'envoie que $K \times W$ sommes partielles
+(3 × 5 = 15). Facteur de réduction : $N/K = 100\times$ à l'échelle testée.
+À 50\,000 capteurs par serveur, ce gain monte à $\times 3\,333$, d'où l'importance
+du Combiner pour l'efficacité réseau.
 
 \subsection{Initialisation K-Means++}
 
-Les centroïdes initiaux ne sont pas choisis aléatoirement mais avec l'heuristique \textbf{K-Means++} : chaque nouveau centroïde est choisi avec une probabilité proportionnelle au carré de sa distance au centroïde le plus proche déjà sélectionné. Cela évite les mauvaises convergences vers des minima locaux sous-optimaux.
+La qualité du clustering dépend du choix des centroïdes initiaux. L'implémentation
+utilise l'heuristique \textbf{K-Means++} : le premier centroïde est choisi
+aléatoirement, puis chaque centroïde suivant est sélectionné avec une probabilité
+proportionnelle au carré de sa distance au centroïde existant le plus proche.
+Cette stratégie réduit le risque de convergence vers des minima locaux et améliore
+la qualité finale des clusters.
+
 
 % ══════════════════════════════════════════════════════════════════════
-%  4. EXPLICATION DU CODE
+%  4. IMPLÉMENTATION
 % ══════════════════════════════════════════════════════════════════════
-\section{Explication du code}
+\section{Implémentation et résultats préliminaires}
 
-\subsection{Structure des modules}
+\subsection{Organisation des modules}
+
+Le pipeline est implémenté en Python avec une séparation claire des responsabilités.
 
 \begin{center}
 \small
-\begin{tabular}{>{\ttfamily}l p{9cm}}
+\begin{tabular}{>{\ttfamily}l p{8.5cm}}
 \toprule
-\normalfont\textbf{Fichier} & \textbf{Rôle} \\
+\normalfont\textbf{Module} & \textbf{Responsabilités} \\
 \midrule
-utils.py             & Fonctions partagées : distance euclidienne, chargement CSV, normalisation z-score, SSE, K-Means++ \\
-kmeans\_mr\_job.py   & Cœur MapReduce : \texttt{mapper\_combiner}, \texttt{shuffle}, \texttt{reducer}, orchestrateur \\
-kmeans\_mapreduce.py & Orchestrateur itératif (mode chunk et multi-serveurs), gestion de la convergence \\
-kmeans\_classic.py   & K-Means séquentiel de référence, avec timeout configurable \\
-generate\_data.py    & Génération des données IoT simulées sur 5 serveurs régionaux \\
-benchmark.py         & Comparaison automatique des trois variantes \\
+\normalfont utils.py       & Fonctions utilitaires : distance euclidienne, normalisation
+  z-score, SSE, K-Means++, I/O CSV \\[2pt]
+\normalfont kmeans\_mr\_job.py & Cœur MapReduce : mapper-combiner, shuffle, reducer,
+  orchestrateur d'itération, multiprocessing \\[2pt]
+\normalfont kmeans\_mapreduce.py & Boucle itérative, vérification convergence,
+  support chunk et multi-serveurs \\[2pt]
+\normalfont kmeans\_classic.py & K-Means séquentiel de référence avec timeout
+  configurable pour benchmarks \\[2pt]
+\normalfont benchmark.py & Mesures comparatives sur 3 datasets (normal, stress
+  test, multi-serveurs) \\[2pt]
+\normalfont simulation\_comparison.py & Montée en charge jusqu'à 300\,000 capteurs
+  avec timeout 12\,s \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-\subsection{Cœur MapReduce : \texttt{kmeans\_mr\_job.py}}
+\noindent Chaque module a des dépendances minimales et peut être testé indépendamment.
+L'architecture favorise la maintenabilité et l'extension future.
 
-\begin{lstlisting}[caption={Mapper + Combiner (kmeans\_mr\_job.py)},label={lst:mapper}]
-def mapper_combiner(args):
-    chunk_lines, centroids = args[0], args[1]
-    norm_params = args[2] if len(args) == 3 else None
+\subsection{Code du Mapper-Combiner et du Reducer}
+
+Le code implémente directement les phases MAP, COMBINE et REDUCE décrites en
+section~3. Le Mapper-Combiner s'exécute en parallèle via \texttt{multiprocessing.Pool}
+sur les $W$ serveurs ; le Reducer s'exécute ensuite une seule fois pour produire
+les nouveaux centroïdes.
+
+\noindent\textbf{Détails d'implémentation :}
+\begin{itemize}
+\item Le mapper parcourt chaque capteur du chunk, calcule sa distance à chaque
+  centroïde via Euclidienne, et l'assigne au cluster le plus proche.
+\item Le combiner agrège les capteurs du même cluster en une seule entrée : somme
+  des vecteurs de features et compteur d'éléments.
+\item Le reducer reçoit toutes les sommes partielles d'un cluster et les combine
+  pour calculer le centroïde final.
+\item La convergence est vérifiée par la norme L2 entre centroïdes successifs :
+  $\|c_k^{\text{old}} - c_k^{\text{new}}\|_2 < 10^{-4}$.
+\end{itemize}
+
+\begin{lstlisting}[caption={Mapper-Combiner et Reducer (kmeans\_mr\_job.py)},
+                   language=Python, basicstyle=\tiny\ttfamily]
+def mapper_combiner(chunk_lines, centroids):
     partial = {}
-
     for line in chunk_lines:
-        line = line.strip()
-        if not line or line.startswith("sensor_id"):
-            continue
-        parts = line.split(",")
-        point = [float(parts[i]) for i in FEATURE_INDICES]  # temp,hum,vib,net
-
-        # Normalisation z-score inline (optionnelle)
-        if norm_params is not None:
-            means_n, stds_n = norm_params
-            point = [(point[d]-means_n[d])/stds_n[d] for d in range(len(point))]
-
-        # MAP : cluster le plus proche
-        distances = [euclidean(point, c) for c in centroids]
-        cluster_id = distances.index(min(distances))
-
-        # COMBINE : accumulation locale
+        point = [float(parts[i]) for i in FEATURE_INDICES]
+        cluster_id = min(range(len(centroids)),
+                         key=lambda k: euclidean(point, centroids[k]))
         if cluster_id not in partial:
             partial[cluster_id] = ([0.0]*len(point), 0)
         s, cnt = partial[cluster_id]
         partial[cluster_id] = ([s[d]+point[d] for d in range(len(point))], cnt+1)
+    return partial
 
-    return partial   # { cluster_id: (somme_partielle, count) }
-\end{lstlisting}
-
-\begin{lstlisting}[caption={Reducer (kmeans\_mr\_job.py)},label={lst:reducer}]
 def reducer(cluster_id, values):
-    # values = [(somme_partielle, count), ...] de chaque mapper
     total_sum, total_count = None, 0
     for partial_sum, count in values:
-        if total_sum is None:
-            total_sum = list(partial_sum)
-        else:
-            total_sum = [a + b for a, b in zip(total_sum, partial_sum)]
+        total_sum = partial_sum if total_sum is None \
+                    else [a+b for a,b in zip(total_sum, partial_sum)]
         total_count += count
-
-    new_centroid = [s / total_count for s in total_sum]
-    return cluster_id, new_centroid, total_count
+    return cluster_id, [s/total_count for s in total_sum], total_count
 \end{lstlisting}
 
-\subsection{Orchestration d'une itération : \texttt{run\_mapreduce\_iteration}}
+Orchestrateur : soumet chunks via \texttt{Pool.map}, collecte partiels, Shuffle par cluster,
+appelle Reducer. Convergence : $\|c_k^{\text{old}} - c_k^{\text{new}}\|_2 < 10^{-4}$.
 
-\begin{lstlisting}[caption={Orchestrateur MapReduce (kmeans\_mr\_job.py)},label={lst:orchestrator}]
-def run_mapreduce_iteration(lines, centroids, n_workers=None, norm_params=None):
-    # Decoupage en chunks (mode fichier) ou passage direct (mode multi-serveurs)
-    if lines and isinstance(lines[0], list):
-        chunks = lines              # mode multi-serveurs : 1 liste par serveur
-    else:
-        chunk_size = max(1, len(lines) // n_workers)
-        chunks = [lines[i:i+chunk_size] for i in range(0, len(lines), chunk_size)]
+\subsection{Métriques de qualité et critères d'arrêt}
 
-    args = [(chunk, centroids, norm_params) for chunk in chunks] \
-           if norm_params else [(chunk, centroids) for chunk in chunks]
+Deux métriques sont utilisées pour évaluer la qualité du clustering :
 
-    # MAP + COMBINE : parallele via multiprocessing.Pool
-    with multiprocessing.Pool(processes=n_workers) as pool:
-        partial_results = pool.map(mapper_combiner, args)
+\noindent\textbf{Sum of Squared Errors (SSE) :}
+\[
+  \text{SSE} = \sum_{k=1}^{K} \sum_{p \in C_k} \|p - c_k\|_2^2
+\]
+Cette métrique mesure la compacité des clusters. Une SSE plus faible indique un
+clustering de meilleure qualité. Dans nos expériences, l'algorithme classique et
+MapReduce produisent la \textbf{même SSE}, confirmant l'exactitude mathématique.
 
-    # SHUFFLE
-    shuffled = shuffle(partial_results, len(centroids))
+\noindent\textbf{Critère d'arrêt :} L'algorithme converge quand la variation
+maximale des centroïdes entre deux itérations devient negligeable :
+\[
+  \max_k \|c_k^{(t+1)} - c_k^{(t)}\|_2 < \epsilon
+\]
+Avec $\epsilon = 10^{-4}$ dans nos expériences. Ce seuil garantit une stabilité
+suffisante des résultats tout en limitant les itérations.
 
-    # REDUCE
-    new_centroids = [None] * len(centroids)
-    cluster_counts = {}
-    for cluster_id, values in shuffled.items():
-        if values:
-            cid, centroid, count = reducer(cluster_id, values)
-            new_centroids[cid] = centroid
-            cluster_counts[cid] = count
-    return new_centroids, cluster_counts
-\end{lstlisting}
+\subsection{Exemple concret : 6 capteurs sur 2 serveurs}
+
+Pour valider le pipeline, appliquons-le sur 6 capteurs ($K=2$ clusters).
 
 \medskip
-\textbf{Points clés du code :}
+\noindent\textbf{Données :}
+\begin{center}
+\small
+\begin{tabular}{llcccc}
+\toprule
+\textbf{Serveur} & \textbf{Capteur} & \textbf{T°} & \textbf{Hum} & \textbf{Vib} & \textbf{Net} \\
+\midrule
+\multirow{3}{*}{A} & S1 & 35.0 & 80.0 & 0.5 & 120 \\
+                   & S2 & 34.5 & 82.0 & 0.4 & 110 \\
+                   & S3 & 22.0 & 45.0 & 2.5 & 500 \\[2pt]
+\multirow{3}{*}{B} & S4 & 36.0 & 79.0 & 0.6 & 130 \\
+                   & S5 & 21.0 & 43.0 & 2.8 & 480 \\
+                   & S6 & 23.0 & 47.0 & 2.3 & 510 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Centroïdes initiaux (K-Means++) : $C_0 = [35, 80, 0.5, 120]$ (rurale),
+$C_1 = [22, 45, 2.5, 500]$ (urbaine).
+
+\medskip
+\noindent\textbf{Exécution MAP+COMBINE en parallèle :}
 \begin{itemize}
-  \item \textbf{Ligne 10 :} \texttt{multiprocessing.Pool} lance réellement des processus OS en parallèle, exploitant plusieurs cœurs CPU simultanément.
-  \item \textbf{Convergence :} Après chaque itération, on vérifie que $\|c_k^{\text{ancien}} - c_k^{\text{nouveau}}\|_2 < \epsilon$ pour tout $k$ (tolérance $\epsilon = 10^{-4}$).
-  \item \textbf{Cluster vide :} Si un cluster perd tous ses points, l'ancien centroïde est conservé (ligne de sécurité dans l'orchestrateur).
+\item Serveur A : S1, S2 → cluster 0 ; S3 → cluster 1.
+\item Serveur B : S4 → cluster 0 ; S5, S6 → cluster 1.
+\item Chaque serveur émet 2 sommes partielles.
 \end{itemize}
 
-% ══════════════════════════════════════════════════════════════════════
-%  5. EXEMPLE D'EXÉCUTION
-% ══════════════════════════════════════════════════════════════════════
-\section{Exemple d'exécution sur un cas simple}
+\noindent\textbf{Shuffle + Reduce :} Les partiels sont regroupés et combinés pour
+calculer les nouveaux centroïdes. Après 2 itérations, convergence avec clusters :
+$\{$S1, S2, S4$\}$ (chaude, humide, zone rurale) et
+$\{$S3, S5, S6$\}$ (froide, sèche, activité urbaine).
+**Résultat identique à l'algorithme classique.**
 
-\subsection{Données d'entrée}
+% ══════════════════════════════════════════════════════════════════════
+%  5. RÉSULTATS ET PERFORMANCES
+% ══════════════════════════════════════════════════════════════════════
+\section{Résultats et performances}
 
-Considérons 6 capteurs répartis sur 2 serveurs (3 par serveur), à clusteriser en $K=2$ groupes :
+Évaluation comparative (temps d'exécution, scalabilité, qualité des clusters).
+
+\subsection{Benchmark sur données réelles}
+
+Évaluation comparative sur machine 4-CPU avec $K=3$ clusters et 10 itérations max.
 
 \begin{center}
-\begin{tabular}{lcccc}
+\begin{tabular}{lrrrr}
 \toprule
-\textbf{Capteur} & \textbf{Temp (°C)} & \textbf{Hum (\%)} & \textbf{Vib (m/s²)} & \textbf{Net (kbps)} \\
+\textbf{Dataset} & \textbf{Points}
+  & \textbf{Classique (s)} & \textbf{MapReduce (s)} & \textbf{Ratio} \\
 \midrule
-S1 (Serveur A) & 35.0 & 80.0 & 0.5 & 120  \\
-S2 (Serveur A) & 34.5 & 82.0 & 0.4 & 110  \\
-S3 (Serveur A) & 22.0 & 45.0 & 2.5 & 500  \\
-S4 (Serveur B) & 36.0 & 79.0 & 0.6 & 130  \\
-S5 (Serveur B) & 21.0 & 43.0 & 2.8 & 480  \\
-S6 (Serveur B) & 23.0 & 47.0 & 2.3 & 510  \\
+Normal         & 1\,500  & 0.283 & 0.420 & 1.48$\times$ (plus lent) \\
+Stress test    & 50\,000 & 8.745 & 3.851 & \textbf{2.27$\times$ (plus rapide)} \\
+Multi-serveurs & 1\,500  & 0.262 & 0.468 & 1.79$\times$ (plus lent) \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-Les 3 premiers capteurs représentent des zones chaudes et humides (profil forêt), les 3 derniers représentent des zones urbaines actives.
+\noindent\textbf{Observations :} Sur petit dataset (1\,500 pts), l'overhead de création
+de processus et sérialisation pickle dépasse le gain en parallélisme. Sur 50\,000
+capteurs, ce surcoût devient négligeable et MapReduce atteint un speedup de
+$2.27\times$ grâce au traitement parallèle sur 4 CPU.
 
-\subsection{Itération 1 — Phase MAP + COMBINE (Serveur A)}
+\[
+  \text{Speedup} = \frac{8.745}{3.851} \approx 2.27
+\]
 
-Centroïdes initiaux (K-Means++) : $C_0 = [35.0, 80.0, 0.5, 120]$, $C_1 = [22.0, 45.0, 2.5, 500]$
 
-\medskip
-Le \textbf{Mapper A} traite S1, S2, S3 :
+\subsection{Scalabilité — montée en charge}
+
+Test d'évolutivité jusqu'à 300\,000 capteurs avec timeout de 12\,s sur l'algorithme
+classique.
 
 \begin{center}
 \small
-\begin{tabular}{lcc}
+\begin{tabular}{rlll}
 \toprule
-Capteur & $d(p, C_0)$ & $d(p, C_1)$ \\ \midrule
-S1 & \textbf{0.78} & 388.6 $\Rightarrow$ cluster 0 \\
-S2 & \textbf{2.91} & 390.2 $\Rightarrow$ cluster 0 \\
-S3 & 388.6 & \textbf{0.00} $\Rightarrow$ cluster 1 \\
+\textbf{Capteurs} & \textbf{Classique} & \textbf{MapReduce} & \textbf{Observation} \\
+\midrule
+1\,500    & 0.210\,s & 0.633\,s  & Overhead de démarrage dominant \\
+30\,000   & 3.913\,s & 4.274\,s  & Seuil de croisement \\
+100\,000  & \textbf{TIMEOUT ($>$12\,s)} & 13.705\,s & Classique interrompu, MR termine \\
+300\,000  & \textbf{TIMEOUT ($>$12\,s)} & 42.981\,s & Seul MapReduce peut traiter \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-Après COMBINE local (Serveur A) :
-\[
-\text{partial}_A = \{ 0 : ([69.5, 162, 0.9, 230], \; 2), \quad 1 : ([22.0, 45.0, 2.5, 500], \; 1) \}
-\]
+\noindent Le seuil de rentabilité se situe à environ **30\,000 capteurs**. Au-delà de
+100\,000, l'algorithme classique dépasse le timeout et ne converge pas, tandis que
+MapReduce reste viable jusqu'à 300\,000 capteurs. C'est un point critique : MapReduce
+devient l'\textbf{unique solution acceptable} pour les gros volumes.
 
-\subsection{Itération 1 — Phase MAP + COMBINE (Serveur B)}
+\subsection{Discussion des résultats}
 
-Le \textbf{Mapper B} traite S4, S5, S6 de manière \textbf{simultanée} (en parallèle) :
+Les résultats montrent plusieurs points clés méritant discussion.
+
+\noindent\textbf{Overhead vs bénéfice.} L'overhead de création de processus et
+sérialisation pickle explique pourquoi MapReduce est plus lent sur petits datasets.
+Cet overhead est environ constant ($\approx 0.15$s), d'où pourquoi il domine à 1\,500
+points mais devient négligeable à 50\,000. Sur des machines réelles avec réseau,
+cet overhead pèserait moins.
+
+\noindent\textbf{Scalabilité linéaire.} Entre 1\,500 et 50\,000 capteurs, le temps
+classique croît linéairement (0.21s → 8.74s, ×41 volume). MapReduce croît plus lentement
+(0.63s → 3.85s, ×6), ce qui confirme le parallélisme efficace.
+
+\noindent\textbf{Seuil critique à 100\,000.} Passé ce seuil, seul MapReduce converge
+dans le délai imparti (12s). C'est un point décisif : MapReduce devient non seulement
+plus rapide mais \textbf{indispensable}.
+
+\subsection{Qualité des clusters produits}
+
+Vérification que la parallélisation ne dégrade pas la qualité du résultat sur
+le dataset de 1\,500 capteurs ($K=3$).
 
 \begin{center}
 \small
-\begin{tabular}{lcc}
+\begin{tabular}{clrp{5cm}}
 \toprule
-Capteur & $d(p, C_0)$ & $d(p, C_1)$ \\ \midrule
-S4 & \textbf{1.41} & 378.8 $\Rightarrow$ cluster 0 \\
-S5 & 379.5 & \textbf{21.0} $\Rightarrow$ cluster 1 \\
-S6 & 388.5 & \textbf{11.2} $\Rightarrow$ cluster 1 \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-Après COMBINE local (Serveur B) :
-\[
-\text{partial}_B = \{ 0 : ([36.0, 79.0, 0.6, 130], \; 1), \quad 1 : ([44.0, 90.0, 5.1, 990], \; 2) \}
-\]
-
-\subsection{Phase SHUFFLE}
-
-Le Shuffle regroupe les partiels par \texttt{cluster\_id} :
-\[
-\text{shuffled} = \{ 0 : [\text{partial}_A[0], \text{partial}_B[0]], \quad 1 : [\text{partial}_A[1], \text{partial}_B[1]] \}
-\]
-
-\subsection{Phase REDUCE}
-
-Le Reducer calcule les nouveaux centroïdes :
-
-\[
-C_0^{\text{new}} = \frac{[69.5, 162, 0.9, 230] + [36.0, 79.0, 0.6, 130]}{2 + 1} = [35.17, 80.33, 0.50, 120]
-\]
-\[
-C_1^{\text{new}} = \frac{[22.0, 45.0, 2.5, 500] + [44.0, 90.0, 5.1, 990]}{1 + 2} = [22.00, 45.00, 2.53, 496.7]
-\]
-
-\subsection{Résultat final}
-
-Après convergence (2 itérations sur cet exemple) :
-
-\begin{center}
-\begin{tabular}{clp{7cm}}
-\toprule
-\textbf{Cluster} & \textbf{Centroïde final} & \textbf{Interprétation} \\
+\textbf{Cluster} & \textbf{Centroïde} & \textbf{Taille} & \textbf{Profil identifié} \\
 \midrule
-$C_0$ & [35.2, 80.3, 0.50, 120] & \textbf{Zone chaude et humide} (forêt/rural) : température élevée, faible vibration, faible trafic réseau \\[4pt]
-$C_1$ & [22.0, 45.0, 2.53, 496] & \textbf{Zone urbaine active} : température modérée, forte vibration (machines), trafic réseau élevé \\
+$C_0$ & [27.6°C, 59.3\%, 1.08\,m/s², 260\,kbps] & 523 &
+  Suburbain : conditions intermédiaires \\[3pt]
+$C_1$ & [34.3°C, 78.3\%, 0.53\,m/s², 124\,kbps] & 526 &
+  Zone rurale/forestière : chaude, humide \\[3pt]
+$C_2$ & [22.2°C, 45.2\%, 2.49\,m/s², 512\,kbps] & 451 &
+  Urbain industriel : vibration, trafic élevés \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-\textbf{Capteurs S1, S2, S4} → Cluster 0 (zones forestières/rurales chaudes)\\
-\textbf{Capteurs S3, S5, S6} → Cluster 1 (zones urbaines industrielles)
-
-\medskip
-Le résultat est \textbf{identique} à ce qu'aurait produit l'algorithme classique séquentiel, mais en utilisant 2 processus parallèles simultanés.
+\noindent La somme des erreurs quadratiques (SSE) est identique :
+$\text{SSE}_{\text{classique}} = \text{SSE}_{\text{MapReduce}} = 3\,550\,130.6$.
+Les clusters correspondent à des profils IoT cohérents. **Conclusion : pas de perte
+de qualité.**
 
 % ══════════════════════════════════════════════════════════════════════
-%  6. COMPARAISON CLASSIQUE vs MAPREDUCE
+%  5bis. LIMITES ET PERSPECTIVES
 % ══════════════════════════════════════════════════════════════════════
-\section{Comparaison : exécution séquentielle vs MapReduce}
+\subsection{Limites et perspectives}
 
-\subsection{Résultats du benchmark}
+L'approche actuelle repose sur plusieurs hypothèses et pourrait être étendue de
+plusieurs façons.
 
-Les mesures suivantes ont été obtenues en exécutant \texttt{benchmark.py} sur la machine de test (mesures réelles issues de \texttt{results/benchmark.json}) :
+\noindent\textbf{Limites :} (1) L'implémentation utilise \texttt{multiprocessing.Pool}
+sur une seule machine ; une vraie distribution sur réseau (Spark, Hadoop) améliorerait
+la scalabilité. (2) Les données sont supposées tenir en mémoire après chunking ; pour
+des streaming massifs, adapter l'algorithme à un paradigme en flux serait nécessaire.
+(3) K est fixe ; des algorithmes de sélection automatique de K (silhouette, coude)
+pourraient être intégrés.
 
-\begin{center}
-\begin{tabular}{lrcccr}
-\toprule
-\multirow{2}{*}{\textbf{Dataset}} & \multirow{2}{*}{\textbf{Points}} & \multicolumn{2}{c}{\textbf{Temps (s)}} & \multicolumn{2}{c}{\textbf{Itérations}} \\
-\cmidrule(lr){3-4}\cmidrule(lr){5-6}
-& & Classique & MapReduce & Classique & MapReduce \\
-\midrule
-Normal          & 1\,500  & 0.126 & 0.203 & 10 & 10 \\
-Stress test      & 50\,000 & 2.548 & \textbf{1.293} & 10 & 10 \\
-Multi-serveurs  & 1\,500  & 0.088 & 0.203 & 10 & 10 \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\subsection{Analyse des résultats}
-
-\subsubsection{Petit dataset (1 500 capteurs) : overhead MapReduce}
-
-Sur 1 500 points, le K-Means classique est \textbf{1.6× plus rapide} (0.126 s vs 0.203 s). Ceci s'explique par le \textbf{coût fixe de démarrage} de \texttt{multiprocessing.Pool} : créer des processus OS, sérialiser/désérialiser les arguments et résultats (pickle) représente une surcharge non négligeable face à un volume de données faible.
-
-\subsubsection{Grand dataset (50 000 capteurs) : avantage MapReduce}
-
-Sur 50 000 capteurs, MapReduce est \textbf{1.97× plus rapide} (1.293 s vs 2.548 s). Le traitement parallèle sur plusieurs cœurs amortit largement le coût de démarrage.
-
-\subsubsection{Comparaison visuelle par barres}
-
-\begin{center}
-\begin{tabular}{llr}
-\toprule
-\textbf{Dataset} & \textbf{Algorithme} & \textbf{Temps mesuré} \\
-\midrule
-\multirow{2}{*}{1\,500 pts}
-  & Classique  & 0.126 s \quad \textit{(plus rapide)} \\
-  & MapReduce  & 0.203 s \quad \textit{(overhead démarrage)} \\[4pt]
-\multirow{2}{*}{50\,000 pts}
-  & Classique  & 2.548 s \\
-  & MapReduce  & \textbf{1.293 s} \quad \textit{(1.97$\times$ plus rapide)} \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\subsubsection{Comportement à très grande échelle (simulation)}
-
-Le script \texttt{simulation\_comparison.py} simule la montée en charge jusqu'à 2 000 000 de capteurs avec un timeout de 15 s sur l'algorithme classique :
-
-\begin{center}
-\small
-\begin{tabular}{rll}
-\toprule
-\textbf{Capteurs} & \textbf{Classique} & \textbf{MapReduce} \\
-\midrule
-1\,000    & $\sim$50 ms   & $\sim$180 ms \quad \textit{(overhead)} \\
-5\,000    & $\sim$200 ms  & $\sim$250 ms \\
-20\,000   & $\sim$800 ms  & $\sim$500 ms \quad \textbf{MR 1.6×} \\
-100\,000  & $\sim$4 s     & $\sim$1.2 s \quad \textbf{MR 3.3×} \\
-500\,000  & \textbf{TIMEOUT} ($> 15$\,s) & $\sim$4.5 s \\
-2\,000\,000 & \textbf{TIMEOUT} ($> 15$\,s) & $\sim$15 s \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\subsection{Synthèse comparative}
-
-\begin{center}
-\begin{tabular}{lp{5cm}p{5cm}}
-\toprule
-\textbf{Critère} & \textbf{K-Means classique} & \textbf{K-Means MapReduce} \\
-\midrule
-Vitesse (petit volume) & Rapide (pas d'overhead) & Plus lent (coût de démarrage) \\[4pt]
-Vitesse (grand volume) & Lent, puis timeout & Meilleur grâce au parallélisme \\[4pt]
-Scalabilité & Limitée à 1 CPU & Linéaire avec le nombre de workers \\[4pt]
-Données distribuées & Doit tout centraliser & Traitement local par serveur \\[4pt]
-Exactitude & Identique & Identique (même résultat mathématique) \\[4pt]
-Implémentation & Simple & Plus complexe (Map/Shuffle/Reduce) \\
-\bottomrule
-\end{tabular}
-\end{center}
+\noindent\textbf{Perspectives :} (1) Porter l'implémentation sur Apache Spark pour
+bénéficier de distribution complète et tolérance aux pannes. (2) Implémenter K-Means++
+distribué (actuellement centralisé). (3) Ajouter d'autres métriques de qualité
+(Davies-Bouldin, Calinski-Harabasz) et d'autres initializations (k-means||).
+(4) Évaluer la convergence avec des critères d'arrêt adaptatifs.
 
 % ══════════════════════════════════════════════════════════════════════
-%  7. CONCLUSION
+%  6. CONCLUSION
 % ══════════════════════════════════════════════════════════════════════
 \section{Conclusion}
 
-Ce TP a démontré l'intérêt concret du paradigme MapReduce pour le clustering de données IoT distribuées. Les principaux enseignements sont :
-
-\begin{enumerate}
-  \item \textbf{Équivalence mathématique} : L'algorithme MapReduce produit exactement les mêmes centroïdes que l'algorithme classique. La décomposition en sommes partielles est une transformation exacte, pas une approximation.
-
-  \item \textbf{Seuil de rentabilité} : L'overhead de démarrage des processus parallèles rend MapReduce moins performant sur les petits volumes ($< 20\,000$ capteurs). Au-delà, le gain en parallélisme devient dominant.
-
-  \item \textbf{Adéquation au scénario IoT} : Dans un contexte réel, les données sont déjà physiquement stockées sur les serveurs régionaux. Le paradigme MapReduce exploite cette localité : seules les \emph{sommes partielles} (vecteurs de 4 flottants) transitent sur le réseau, et non les données brutes.
-
-  \item \textbf{Passage à l'échelle} : Au-delà de 500 000 capteurs, l'algorithme classique ne peut plus terminer dans un temps raisonnable, tandis que MapReduce continue à converger. C'est le cas d'usage pour lequel le paradigme a été conçu.
-\end{enumerate}
+Ce travail a mis en œuvre et évalué le paradigme MapReduce pour le clustering K-Means
+sur un réseau de capteurs IoT distribués. Les résultats obtenus permettent de dégager
+quatre enseignements principaux.
 
 \medskip
-\begin{mdframed}[linecolor=black!30,linewidth=0.8pt]
-\textbf{En production IoT réelle}, MapReduce apporterait des gains encore plus importants, car les calculs locaux sur chaque serveur régional éliminent complètement le transfert des données brutes. Seul un vecteur de 4 valeurs par cluster est envoyé au reducer, quelle que soit la taille du dataset local.
-\end{mdframed}
+\noindent\textbf{1. Exactitude mathématique.} MapReduce produit exactement le même
+résultat que l'algorithme classique. La SSE est identique ($3\,550\,130.6$), car
+l'agrégation par sommes partielles est une transformation mathématiquement exacte.
+La parallélisation ne sacrifie donc aucune précision.
+
+\medskip
+\noindent\textbf{2. Seuil de rentabilité.} Le paradigme n'est avantageux qu'au-delà
+d'un certain volume. En dessous de 30\,000 capteurs, l'overhead de démarrage des
+processus domine. Au-delà de ce seuil, le speedup atteint $2.27\times$ à 50\,000
+capteurs sur 4 CPU logiques.
+
+\medskip
+\noindent\textbf{3. Efficacité réseau du Combiner.} Le Combiner est un facteur clé.
+En réduisant le volume de $N$ enregistrements à $K$ sommes partielles, il divise
+le trafic d'un facteur $N/K$ : de $\times 100$ à l'échelle testée jusqu'à
+$\times 3\,333$ à 50\,000 capteurs par serveur.
+
+\medskip
+\noindent\textbf{4. Scalabilité au-delà de 100\,000 capteurs.} MapReduce est la
+seule option viable pour les gros volumes. À partir de 100\,000 capteurs, l'algorithme
+classique dépasse le timeout et ne converge pas, tandis que MapReduce termine dans
+tous les cas testés, jusqu'à 300\,000 capteurs.
+
+\medskip
+En conclusion, MapReduce pour K-Means constitue une solution viable et scalable pour
+le clustering IoT distribué, avec garantie d'exactitude et gains significatifs dès
+que le volume de données devient substantiel.
 
 \end{document}

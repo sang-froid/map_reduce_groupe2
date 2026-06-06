@@ -40,7 +40,7 @@
         59.8263
       ],
       "converged_at_iter": 3,
-      "duration_sec": 0.0621
+      "duration_sec": 0.0857
     },
     {
       "wave": 2,
@@ -77,7 +77,7 @@
         13.8277
       ],
       "converged_at_iter": 3,
-      "duration_sec": 0.0562
+      "duration_sec": 0.0508
     },
     {
       "wave": 3,
@@ -114,7 +114,7 @@
         13.4399
       ],
       "converged_at_iter": 3,
-      "duration_sec": 0.0561
+      "duration_sec": 0.1175
     },
     {
       "wave": 4,
@@ -151,7 +151,7 @@
         14.432
       ],
       "converged_at_iter": 3,
-      "duration_sec": 0.0784
+      "duration_sec": 0.0847
     },
     {
       "wave": 5,
@@ -188,7 +188,7 @@
         2.664
       ],
       "converged_at_iter": 3,
-      "duration_sec": 0.0558
+      "duration_sec": 0.102
     },
     {
       "wave": 6,
@@ -225,7 +225,7 @@
         1.1528
       ],
       "converged_at_iter": 3,
-      "duration_sec": 0.1076
+      "duration_sec": 0.0933
     }
   ],
   "final_centroids": [

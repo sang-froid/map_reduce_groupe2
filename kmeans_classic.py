@@ -173,6 +173,11 @@ def main():
         print(f"  RÉSULTAT : {iterations} itérations en {duration:.3f}s")
         cluster_summary(points, assignments, display_centroids, args.k)
 
+    counts = [0] * args.k
+    for a in assignments:
+        counts[a] += 1
+    cluster_counts = {str(i): counts[i] for i in range(args.k)}
+
     os.makedirs(os.path.dirname(args.output), exist_ok=True)
     result = {
         "algorithm": "classic",
@@ -183,6 +188,7 @@ def main():
         "timed_out": timed_out,
         "sse": round(sse, 4) if sse is not None else None,
         "centroids": [[round(v, 4) for v in c] for c in display_centroids],
+        "cluster_counts": cluster_counts,
     }
     with open(args.output, "w") as f:
         json.dump(result, f, indent=2)

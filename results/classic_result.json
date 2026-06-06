@@ -3,7 +3,7 @@
   "n_points": 1500,
   "k": 3,
   "iterations": 12,
-  "duration_sec": 0.0866,
+  "duration_sec": 0.0937,
   "timed_out": false,
   "sse": 3550130.6005,
   "centroids": [
@@ -25,5 +25,10 @@
       2.4933,
       512.4881
     ]
-  ]
+  ],
+  "cluster_counts": {
+    "0": 524,
+    "1": 525,
+    "2": 451
+  }
 }
