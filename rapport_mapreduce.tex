@@ -271,12 +271,13 @@ l'algorithme séquentiel.
 
 \subsection{Efficacité du Combiner}
 
-Plutôt que de transmettre $N \times W$ enregistrements bruts (ex.\ 300 × 5 = 1\,500),
-le Combiner agrège localement et n'envoie que $K \times W$ sommes partielles
-(3 × 5 = 15). Le facteur de réduction du trafic réseau est donc $N/K = 100\times$
-à l'échelle de base. À 50\,000 capteurs par serveur (10k/serveur), ce gain monte
-à $\times 3\,333$, ce qui illustre l'importance du Combiner pour l'efficacité
-réseau à grande échelle.
+Sans Combiner, chaque serveur transmettrait les $N$ enregistrements bruts de ses
+capteurs, soit $N \times W = 300 \times 5 = 1\,500$ enregistrements au total.
+Grâce au Combiner, chaque serveur n'envoie que $K$ sommes partielles, soit
+$K \times W = 3 \times 5 = 15$ valeurs. Le trafic réseau est ainsi réduit d'un
+facteur $N/K = 100$ à l'échelle de base. Pour le dataset de stress à 50\,000
+capteurs au total ($\approx$10\,000 par partition selon le nombre de workers), ce facteur monte à $\approx 3\,333$, ce qui
+illustre l'importance du Combiner à grande échelle.
 
 \subsection{Initialisation K-Means++}
 
@@ -312,7 +313,7 @@ Le pipeline est implémenté en Python avec une séparation claire des responsab
 \normalfont kmeans\_mapreduce.py & Boucle itérative K-Means, critère de convergence,
   mode chunk et mode multi-serveurs \\[2pt]
 \normalfont kmeans\_classic.py & K-Means séquentiel de référence, timeout configurable \\[2pt]
-\normalfont benchmark.py & Benchmark comparatif sur 3 datasets ; timeout 20\,s \\[2pt]
+\normalfont benchmark.py & Benchmark comparatif en 3 phases (fichiers CSV, montée en charge, projections milliard) ; timeout 20\,s \\[2pt]
 \normalfont simulation\_comparison.py & Montée en charge 10k–1M (dashboard) ou 1k–2M
   (complet) ; simulation réseau IoT 1\,Mbps ; timeout 15\,s en mode complet \\
 \bottomrule
@@ -344,7 +345,7 @@ les nouveaux centroïdes.
 \begin{lstlisting}[caption={Mapper-Combiner et Reducer (kmeans\_mr\_job.py)},
                    language=Python, basicstyle=\scriptsize\ttfamily]
 def mapper_combiner(args):   # called via Pool.map  (single tuple argument)
-    chunk_lines, centroids = args[0], args[1]
+    chunk_lines, centroids = args
     partial = {}
     for line in chunk_lines:
         line = line.strip()
@@ -374,45 +375,61 @@ def reducer(cluster_id, values):
     return cluster_id, new_centroid, total_count
 \end{lstlisting}
 
-L'orchestrateur soumet les chunks via \texttt{Pool.map}, collecte les résultats partiels,
-les regroupe par identifiant de cluster (Shuffle), puis appelle le Reducer pour calculer
-les nouveaux centroïdes. La convergence est vérifiée à chaque itération par la condition
+L'orchestrateur commence par soumettre les chunks aux workers via \texttt{Pool.map}.
+Il collecte ensuite les résultats partiels et les regroupe par identifiant de cluster
+(phase Shuffle). Enfin, il appelle le Reducer pour calculer les nouveaux centroïdes.
+À chaque itération, la convergence est contrôlée par la condition
 $\|c_k^{\text{old}} - c_k^{\text{new}}\|_2 < 10^{-4}$, ce qui garantit la stabilité
 des résultats tout en limitant le nombre d'itérations nécessaires.
 
-\subsection{Métriques de qualité et critères d'arrêt}
-
-Deux métriques sont utilisées pour évaluer la qualité du clustering :
-
-\noindent\textbf{Sum of Squared Errors (SSE) :}
-\[
-  \text{SSE} = \sum_{k=1}^{K} \sum_{p \in C_k} \|p - c_k\|_2^2
-\]
-Cette métrique mesure la compacité des clusters. Une SSE plus faible indique un
-clustering de meilleure qualité. Dans nos expériences, l'algorithme classique et
-MapReduce produisent la \textbf{même SSE}, confirmant l'exactitude mathématique.
-
-\noindent\textbf{Critère d'arrêt :} L'algorithme converge quand la variation
-maximale des centroïdes entre deux itérations devient négligeable :
-\[
-  \max_k \|c_k^{(t+1)} - c_k^{(t)}\|_2 < \epsilon
-\]
-Avec $\epsilon = 10^{-4}$ dans nos expériences. Ce seuil garantit une stabilité
-suffisante des résultats tout en limitant les itérations.
 
 \subsection{Exemple concret : 6 capteurs sur 2 serveurs}
 
-Pour valider le pipeline, on considère un exemple minimal : 6 capteurs répartis
-sur 2 serveurs, $K=2$ clusters, et des centroïdes initiaux choisis par K-Means++,
-à savoir $C_0=[35,80,0.5,120]$ (profil rural) et $C_1=[22,45,2.5,500]$ (profil urbain).
+On considère 6 capteurs ($K{=}2$, features : température T et humidité H) sur 2 serveurs.
+Centroïdes K-Means++ : $C_0{=}[34,78]$ (rural/chaud), $C_1{=}[22,44]$ (urbain).
 
-Durant la phase \textbf{MAP+COMBINE}, le serveur A regroupe les capteurs S1 et S2
-vers $C_0$ et S3 vers $C_1$ ; le serveur B affecte S4 à $C_0$, et S5 et S6 à $C_1$.
-Chaque serveur n'émet ainsi que 2 sommes partielles au lieu de 3 enregistrements bruts.
-Après la phase \textbf{Shuffle+Reduce}, l'agrégation globale conduit à la convergence
-en seulement 2 itérations. Le résultat final regroupe $\{$S1,S2,S4$\}$ dans un cluster
-chaud et humide (rural) et $\{$S3,S5,S6$\}$ dans un cluster froid et sec (urbain),
-ce qui est \textbf{identique au résultat produit par l'algorithme classique}.
+\smallskip
+\noindent\textbf{Itération 1 — MAP} : chaque serveur calcule $d{=}\sqrt{\Delta T^2+\Delta H^2}$ et affecte au plus proche.
+
+\begin{center}
+\small
+\begin{tabular}{@{}ccrrc@{}}
+\toprule
+\textbf{Serv.} & \textbf{Capteur} & $d(\cdot,C_0)$ & $d(\cdot,C_1)$ & \textbf{Aff.} \\
+\midrule
+A & $S_1=[34,78]$ & 0.00 & 36.06 & $C_0$ \\
+A & $S_2=[36,82]$ & 4.47 & 40.50 & $C_0$ \\
+A & $S_3=[33,75]$ & 3.16 & 32.89 & $C_0$ \\
+\midrule
+B & $S_4=[21,42]$ & 38.28 & 2.24 & $C_1$ \\
+B & $S_5=[23,48]$ & 31.95 & 4.12 & $C_1$ \\
+B & $S_6=[22,44]$ & 36.06 & 0.00 & $C_1$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent\textbf{COMBINE} : Srv.\,A émet $\{C_0:([34{+}36{+}33,\;78{+}82{+}75],\;3)\}{=}\{C_0:([103,235],3)\}$ ;
+Srv.\,B émet $\{C_1:([21{+}23{+}22,\;42{+}48{+}44],\;3)\}{=}\{C_1:([66,134],3)\}$.
+\textbf{2 émissions réseau} au lieu de 6 enregistrements bruts.
+
+\noindent\textbf{SHUFFLE} : le Reducer reçoit $C_0{\leftarrow}([103,235],3)$ depuis A et
+$C_1{\leftarrow}([66,134],3)$ depuis B.
+
+\noindent\textbf{REDUCE} :
+\[
+  C_0^{\text{new}} = \tfrac{[103,235]}{3} = [34{,}33,\;78{,}33]
+  \qquad
+  C_1^{\text{new}} = \tfrac{[66,134]}{3} = [22{,}00,\;44{,}67]
+\]
+$\|C_0^{\text{new}}{-}C_0\| \approx 0{,}47 > 10^{-4}$ → non convergé ; itération 2 nécessaire.
+
+\noindent\textbf{Itération 2} : les affectations sont inchangées → sommes partielles identiques
+→ $\|\Delta C\|{=}0 < 10^{-4}$ : \textbf{convergé en 2 itérations.}
+
+\noindent\textbf{Résultat final} : $C_0{=}\{S_1,S_2,S_3\}$ ($34{,}33\,\text{°C}$, $78{,}33\%$, rural) ;
+$C_1{=}\{S_4,S_5,S_6\}$ ($22{,}00\,\text{°C}$, $44{,}67\%$, urbain).
+Résultat \textbf{identique à l'algorithme classique} — l'agrégation par sommes partielles
+est mathématiquement exacte. Gain réseau : $N/K{=}3$ ici, $100\times$ sur les données réelles.
 
 % ══════════════════════════════════════════════════════════════════════
 %  5. RÉSULTATS ET PERFORMANCES
@@ -442,59 +459,65 @@ Multi-serveurs & 1\,500  & 0.071 & 0.141 & overhead 1.99$\times$ (normal à ce v
 \end{tabular}
 \end{center}
 
-\noindent\textbf{Observations :} Sur petit dataset (1\,500 pts), l'overhead du pool
-de processus est visible mais faible ($\approx$\,50\,ms). Sur 50\,000 capteurs, le
-parallélisme s'impose : MapReduce atteint un speedup de $2.41\times$.
-
-\[
-  \text{Speedup} = \frac{2.417}{1.002} \approx 2.41
-\]
+\noindent\textbf{Observations :} Sur le petit dataset de 1\,500 capteurs, le surcoût
+lié à la création du pool de processus est mesurable mais reste faible (environ 50\,ms).
+En revanche, sur 50\,000 capteurs, le parallélisme devient clairement avantageux :
+MapReduce atteint un speedup de $2.41\times$ ($2.417\,\text{s} / 1.002\,\text{s}$).
 
 \subsection{Scalabilité — montée en charge et projections milliard}
 
-Ces tests ont été réalisés sur données synthétiques avec un timeout de 20\,s. Le temps \emph{total} inclut le coût réseau IoT (1\,Mbps pour le classique, LAN\,Gigabit pour 15 sommes partielles MapReduce).
+Ces mesures portent sur des données synthétiques avec un timeout de 20\,s.
+Les colonnes \textit{Classique (calcul)} et \textit{MapReduce (calcul)} indiquent
+le \textbf{temps de calcul pur} pour chaque approche. La colonne \textit{Gain total réseau}
+compare les temps \textbf{totaux} en y ajoutant le coût de transfert réseau : pour
+l'approche classique, toutes les données brutes doivent transiter sur un lien IoT à
+1\,Mbps ; pour MapReduce, seules 15 sommes partielles sont envoyées sur un LAN Gigabit.
+Pour les lignes extrapolées (10M à 1G capteurs), la colonne \textit{Classique} affiche
+directement le temps total (calcul\,+\,réseau).
 
 \begin{center}
 \small
+\resizebox{\linewidth}{!}{%
 \begin{tabular}{rrrl}
 \toprule
-\textbf{Capteurs} & \textbf{Classique} & \textbf{MapReduce} & \textbf{Gain total réseau} \\
+\textbf{Capteurs} & \textbf{Classique (calcul)} & \textbf{MapReduce (calcul)} & \textbf{Gain total réseau} \\
 \midrule
 100\,000    & 3.978\,s  & 2.427\,s  & 29.6\,s vs 2.4\,s → \textbf{12.2$\times$} \\
 500\,000    & \textbf{TIMEOUT} & 12.657\,s & $>$2\,min vs 12.7\,s → \textbf{11.7$\times$} \\
-1\,000\,000 & \textbf{TIMEOUT} & 31.360\,s & $>$5\,min vs 31.4\,s → \textbf{8.8$\times$} \\
+1\,000\,000 & \textbf{TIMEOUT} & 31.360\,s & $\approx$4.6\,min vs 31.4\,s → \textbf{8.8$\times$} \\
 \midrule
-\multicolumn{4}{l}{\textit{Extrapolation $O(n)$ depuis 1\,000\,000 capteurs (réseau IoT 1\,Mbps)}} \\
+\multicolumn{4}{l}{\textit{Extrapolation $O(n)$ — classique depuis 100k cap., MR depuis 1M cap. (réseau IoT 1\,Mbps)}} \\
 \midrule
 10\,000\,000     & $\approx$49\,min (total)   & $\approx$5\,min  & \textbf{9.4$\times$} \\
 100\,000\,000    & $\approx$8.2\,h (total)    & $\approx$52\,min & \textbf{9.4$\times$} \\
-1\,000\,000\,000 & \textbf{$\approx$3.4 jours}& $\approx$8.7\,h  & \textbf{9$\times$} \\
+1\,000\,000\,000 & \textbf{$\approx$3.4 jours}& $\approx$8.7\,h  & \textbf{9.4$\times$} \\
 \bottomrule
-\end{tabular}
+\end{tabular}%
+}
 \end{center}
 
-\noindent Le seuil critique se situe à \textbf{500\,000 capteurs} : le classique dépasse
-le timeout de 20\,s tandis que MapReduce converge en 12.657\,s.
-À 1 milliard de capteurs, le classique perd $\approx$3 jours en transfert réseau seul
-(32\,Go à 1\,Mbps) avant même de calculer, tandis que MapReduce livre le résultat en $\approx$8,7\,h
-($9\times$ de gain).
+\noindent Le seuil critique se situe à \textbf{500\,000 capteurs}. En dessous de ce
+seuil, l'approche classique reste utilisable ; au-delà, elle dépasse le timeout de 20\,s
+alors que MapReduce converge en 12.657\,s. À l'échelle du milliard, l'écart devient
+radical : rien que le transfert des données brutes (32\,Go à 1\,Mbps) mobilise le réseau
+pendant environ 3 jours, avant même que le calcul puisse commencer. MapReduce, lui,
+livre le résultat en $\approx$8,7\,h, soit un gain de $9{,}4\times$.
 
 \subsection{Discussion des résultats}
 
-\noindent\textbf{Overhead vs bénéfice.} L'overhead du pool de processus est visible à
-petit volume (50\,ms à 1\,500 capteurs) mais négligeable dès 50\,000 capteurs où MapReduce
-est $2.41\times$ plus rapide. Le gain s'amplifie régulièrement avec le volume.
+\noindent\textbf{Overhead vs bénéfice :} À faible volume (1\,500 capteurs), la création du pool coûte
+$\approx$50\,ms et génère un overhead. Dès 50\,000 capteurs cet overhead est amorti ($2.41\times$) ;
+au-delà de 500\,000, l'approche classique dépasse le timeout et MapReduce devient la seule option.
 
-\noindent\textbf{Impact du réseau IoT.} En scénario réel (1\,Mbps), le gain dépasse
-largement le speedup de calcul : dès 100\,000 capteurs, le classique perd 25.6\,s en
-transfert contre moins d'1\,ms pour MapReduce, soit $12.2\times$ de gain total.
-À l'échelle du milliard, ce facteur réseau est décisif.
+\noindent\textbf{Impact réseau :} En contexte IoT réel à 1\,Mbps, dès 100\,000 capteurs le
+transfert brut mobilise 25,6\,s tandis que MapReduce n'envoie que 15 sommes partielles
+($<\!1\,\text{ms}$) : gain total $12.2\times$. Ce déséquilibre réseau devient dominant au milliard.
 
 \subsection{Qualité des clusters produits}
 
-Nous vérifions ici que la parallélisation ne dégrade pas la qualité du clustering
-en comparant les résultats obtenus sur le dataset de référence de 1\,500 capteurs
-avec $K=3$ clusters.
+Cette section vérifie que la parallélisation ne dégrade pas la qualité du clustering.
+Nous comparons pour cela les centroïdes et la SSE obtenus par les deux approches sur
+le dataset de référence de 1\,500 capteurs avec $K=3$ clusters.
 
 \begin{center}
 \small
@@ -512,34 +535,12 @@ $C_2$ & [22.2°C, 45.2\%, 2.49\,m/s², 512\,kbps] & 451 &
 \end{tabular}
 \end{center}
 
-\noindent La somme des erreurs quadratiques (SSE) est identique :
-$\text{SSE}_{\text{classique}} = \text{SSE}_{\text{MapReduce}} = 3\,550\,130.6$.
-Les clusters correspondent à des profils IoT cohérents et sémantiquement
-interprétables. Ces résultats confirment que la parallélisation par MapReduce
-ne dégrade en rien la qualité du clustering.
+\noindent Les deux algorithmes produisent exactement la même somme des erreurs
+quadratiques : $\text{SSE}_{\text{classique}} = \text{SSE}_{\text{MapReduce}} = 3\,550\,130.6$.
+Les trois clusters identifiés correspondent à des profils IoT distincts et cohérents.
+Ces résultats confirment que la parallélisation par MapReduce ne compromet en rien
+la précision du clustering.
 
-% ══════════════════════════════════════════════════════════════════════
-%  5bis. LIMITES ET PERSPECTIVES
-% ══════════════════════════════════════════════════════════════════════
-\subsection{Limites et perspectives}
-
-L'approche actuelle repose sur plusieurs hypothèses et pourrait être étendue de
-plusieurs façons.
-
-\noindent\textbf{Limites :}
-\begin{enumerate}
-\item L'implémentation utilise \texttt{multiprocessing.Pool} sur une seule machine ; une vraie distribution sur réseau (Spark, Hadoop) améliorerait la scalabilité.
-\item Les données sont supposées tenir en mémoire après chunking ; pour des flux massifs en continu, adapter l'algorithme à un paradigme en flux serait nécessaire.
-\item $K$ est fixe ; des algorithmes de sélection automatique de $K$ (silhouette, coude) pourraient être intégrés.
-\end{enumerate}
-
-\noindent\textbf{Perspectives :}
-\begin{enumerate}
-\item Porter l'implémentation sur Apache Spark pour bénéficier d'une distribution complète et d'une tolérance aux pannes.
-\item Implémenter K-Means++ distribué (actuellement centralisé).
-\item Ajouter d'autres métriques de qualité (Davies-Bouldin, Calinski-Harabasz) et d'autres initialisations (k-means||).
-\item Évaluer la convergence avec des critères d'arrêt adaptatifs.
-\end{enumerate}
 
 % ══════════════════════════════════════════════════════════════════════
 %  6. CONCLUSION
@@ -547,40 +548,33 @@ plusieurs façons.
 \section{Conclusion}
 
 Ce travail a mis en œuvre et évalué le paradigme MapReduce pour le clustering K-Means
-sur un réseau de capteurs IoT distribués. Les résultats obtenus permettent de dégager
-cinq enseignements principaux.
+sur un réseau de capteurs IoT distribués. Cinq enseignements principaux se dégagent.
 
 \begin{enumerate}
 
-\item \textbf{Exactitude mathématique.} MapReduce produit exactement le même résultat
-que l'algorithme classique. La SSE est identique ($3\,550\,130.6$), car l'agrégation
-par sommes partielles est une transformation mathématiquement exacte. La parallélisation
-ne sacrifie donc aucune précision.
+\item \textbf{Exactitude mathématique :} MapReduce produit exactement le même résultat
+que l'algorithme classique : la SSE est identique ($3\,550\,130.6$), car l'agrégation
+par sommes partielles est une transformation mathématiquement exacte.
 
-\item \textbf{Seuil de rentabilité.} MapReduce est avantageux en calcul pur dès
-\textbf{50\,000 capteurs} ($2.41\times$, benchmark sur \texttt{large\_sensors.csv})
-et dominant en scénario IoT réel dès 10\,000 capteurs (réseau 1\,Mbps). À 100\,000
-capteurs, le gain total réseau inclus atteint déjà $12.2\times$.
+\item \textbf{Seuil de rentabilité :} MapReduce devient avantageux dès \textbf{50\,000
+capteurs} en calcul pur ($2.41\times$) et plus tôt encore en scénario IoT réel —
+à 100\,000 capteurs, le gain total atteint déjà $12.2\times$.
 
-\item \textbf{Efficacité réseau du Combiner.} Le Combiner est un facteur clé. En
-réduisant le volume de $N$ enregistrements à $K$ sommes partielles, il divise le
-trafic d'un facteur $N/K$ : de $\times 100$ à l'échelle testée jusqu'à $\times 3\,333$
-à 50\,000 capteurs par serveur.
+\item \textbf{Efficacité réseau du Combiner :} En réduisant $N$ enregistrements à $K$
+sommes partielles, le Combiner divise le trafic d'un facteur $N/K$, soit $\times 100$
+à l'échelle de base et $\times 3\,333$ à 50\,000 capteurs au total.
 
-\item \textbf{Seuil critique à 500\,000 capteurs.} MapReduce est la seule option
-viable pour les gros volumes. Avec le timeout de 20\,s de \texttt{benchmark.py},
-l'algorithme classique échoue à partir de 500\,000 capteurs, tandis que MapReduce
-termine dans tous les cas testés jusqu'à 1\,000\,000 capteurs (31.360\,s).
+\item \textbf{Seuil critique à 500\,000 capteurs :} Au-delà de ce seuil, l'algorithme
+classique dépasse le timeout de 20\,s alors que MapReduce termine dans tous les cas
+testés jusqu'à 1\,000\,000 capteurs (31.360\,s).
 
-\item \textbf{Projection à l'échelle milliard.} À 1 milliard de capteurs, le classique
-nécessite $\approx$3,4 jours (transfert + calcul) contre $\approx$8,7 heures pour
-MapReduce ($9\times$ de gain). MapReduce \emph{termine} pendant que le classique
-\emph{collecte encore les données}.
+\item \textbf{Projection à l'échelle milliard :} À 1 milliard de capteurs, le classique
+nécessite $\approx$3,4 jours contre $\approx$8,7\,h pour MapReduce ($9{,}4\times$) :
+MapReduce \emph{termine} pendant que le classique \emph{collecte encore les données}.
 
 \end{enumerate}
 
-En définitive, MapReduce pour K-Means constitue une solution viable et scalable pour
-le clustering IoT distribué, avec garantie d'exactitude, gains dès 50\,000 capteurs
-en calcul pur, et avantage décisif à l'échelle du milliard de capteurs IoT.
+MapReduce pour K-Means offre ainsi exactitude, scalabilité et efficacité réseau,
+avec un avantage qui s'amplifie à mesure que le volume de données croît.
 
 \end{document}

@@ -84,10 +84,10 @@ Le Combiner local réduit le trafic réseau d'un facteur N/K : au lieu d'envoyer
 
 | Dataset | Points | Classique | MapReduce | Ratio |
 |---|---|---|---|---|
-| Normal | 1 500 | 0.123 s | 0.124 s | ~égal — overhead quasi-nul |
-| Stress test | 50 000 | 2.375 s | 1.004 s | **2.37× — MapReduce plus rapide** |
-| Multi-serveurs | 1 500 | 0.074 s | 0.166 s | 2.24× plus lent sur ce volume |
+| Normal | 1 500 | 0.072 s | 0.125 s | overhead 1.74× (coût fixe pool) |
+| Stress test | 50 000 | 2.417 s | 1.002 s | **2.41× — MapReduce plus rapide** |
+| Multi-serveurs | 1 500 | 0.071 s | 0.141 s | overhead 1.99× (normal à ce volume) |
 
-Le mode multi-serveurs est plus lent sur 1 500 pts car chaque serveur ne traite que 300 capteurs — le coût du pool de processus n'est pas amorti. À partir de 10 000 capteurs, MapReduce est systématiquement plus rapide et devient la seule option viable à 500 000+ capteurs (l'algorithme classique dépasse le timeout de 15 s).
+Le mode multi-serveurs est plus lent sur 1 500 pts car chaque serveur ne traite que 300 capteurs — le coût du pool de processus n'est pas amorti. MapReduce devient avantageux dès 50 000 capteurs et devient la seule option viable à 500 000+ capteurs (l'algorithme classique dépasse le timeout de 20 s dans `benchmark.py`).
 
 La SSE produite est identique dans les deux cas (`3 550 130.6`), ce qui confirme que la parallélisation ne dégrade pas la qualité du clustering.

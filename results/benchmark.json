@@ -12,30 +12,30 @@
     {
       "dataset": "1 500 capteurs (réels)",
       "n_points": 1500,
-      "classic_s": 0.07,
+      "classic_s": 0.096,
       "classic_iters": 10,
       "classic_timeout": false,
-      "mr_s": 0.141,
+      "mr_s": 0.133,
       "mr_iters": 10,
       "mr_timeout": false
     },
     {
       "dataset": "50 000 capteurs (stress)",
       "n_points": 50000,
-      "classic_s": 2.349,
+      "classic_s": 2.336,
       "classic_iters": 10,
       "classic_timeout": false,
-      "mr_s": 1.02,
+      "mr_s": 1.036,
       "mr_iters": 10,
       "mr_timeout": false
     },
     {
       "dataset": "1 500 multi-serveurs",
       "n_points": 1500,
-      "classic_s": 0.075,
+      "classic_s": 0.082,
       "classic_iters": 10,
       "classic_timeout": false,
-      "mr_s": 0.185,
+      "mr_s": 0.212,
       "mr_iters": 10,
       "mr_timeout": false
     }
@@ -44,16 +44,16 @@
     {
       "dataset": "100,000 capteurs",
       "n_points": 100000,
-      "classic_s": 4.097,
+      "classic_s": 3.723,
       "classic_iters": 10,
       "classic_timeout": false,
-      "mr_s": 2.605,
+      "mr_s": 2.509,
       "mr_iters": 10,
       "mr_timeout": false,
       "classic_transfer_s": 25.6,
       "mr_transfer_s": 3.8e-05,
-      "classic_total_s": 29.7,
-      "mr_total_s": 2.605
+      "classic_total_s": 29.32,
+      "mr_total_s": 2.509
     },
     {
       "dataset": "500,000 capteurs",
@@ -61,13 +61,13 @@
       "classic_s": 20,
       "classic_iters": null,
       "classic_timeout": true,
-      "mr_s": 12.329,
+      "mr_s": 10.991,
       "mr_iters": 10,
       "mr_timeout": false,
       "classic_transfer_s": 128.0,
       "mr_transfer_s": 3.8e-05,
       "classic_total_s": 148.0,
-      "mr_total_s": 12.329
+      "mr_total_s": 10.991
     },
     {
       "dataset": "1,000,000 capteurs",
@@ -75,50 +75,50 @@
       "classic_s": 20,
       "classic_iters": null,
       "classic_timeout": true,
-      "mr_s": 30.983,
+      "mr_s": 27.712,
       "mr_iters": 10,
       "mr_timeout": false,
       "classic_transfer_s": 256.0,
       "mr_transfer_s": 3.8e-05,
       "classic_total_s": 276.0,
-      "mr_total_s": 30.983
+      "mr_total_s": 27.713
     }
   ],
   "phase3_projections": [
     {
       "n": 10000000,
-      "classic_compute_s": 409.7,
+      "classic_compute_s": 372.3,
       "classic_transfer_s": 2560.0,
-      "classic_total_s": 2969.7,
-      "mr_compute_s": 309.8,
+      "classic_total_s": 2932.3,
+      "mr_compute_s": 277.1,
       "mr_transfer_s": 0.0,
-      "mr_total_s": 309.8,
+      "mr_total_s": 277.1,
       "ram_gb": 2.0,
-      "gain_x": 9.6,
+      "gain_x": 10.6,
       "note": "extrapolation O(n) + réseau IoT 1 Mbps"
     },
     {
       "n": 100000000,
-      "classic_compute_s": 4097.0,
+      "classic_compute_s": 3723.0,
       "classic_transfer_s": 25600.0,
-      "classic_total_s": 29697.0,
-      "mr_compute_s": 3098.3,
+      "classic_total_s": 29323.0,
+      "mr_compute_s": 2771.2,
       "mr_transfer_s": 0.0,
-      "mr_total_s": 3098.3,
+      "mr_total_s": 2771.2,
       "ram_gb": 20.0,
-      "gain_x": 9.6,
+      "gain_x": 10.6,
       "note": "extrapolation O(n) + réseau IoT 1 Mbps"
     },
     {
       "n": 1000000000,
-      "classic_compute_s": 40970.0,
+      "classic_compute_s": 37230.0,
       "classic_transfer_s": 256000.0,
-      "classic_total_s": 296970.0,
-      "mr_compute_s": 30983.0,
+      "classic_total_s": 293230.0,
+      "mr_compute_s": 27712.0,
       "mr_transfer_s": 0.0,
-      "mr_total_s": 30983.0,
+      "mr_total_s": 27712.0,
       "ram_gb": 200.0,
-      "gain_x": 9.6,
+      "gain_x": 10.6,
       "note": "extrapolation O(n) + réseau IoT 1 Mbps"
     }
   ]
